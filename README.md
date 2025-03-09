@@ -1,7 +1,7 @@
 # MYSEGX 图像分割框架
 
 <div align="center">
-    <img src="MYSEGX.png" alt="MYSEGX Logo" width="600"/>
+    <img src="logo.jpg" alt="MYSEGX Logo" width="600"/>
 </div>
 
 ## 📌 简介
