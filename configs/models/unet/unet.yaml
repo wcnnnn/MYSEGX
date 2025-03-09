@@ -1,0 +1,71 @@
+# UNet模型配置文件
+
+# 模型架构参数
+model:
+  name: unet
+  n_channels: 3  # 输入通道数
+  n_classes: 21  # VOC数据集类别数（20个类别+背景）
+  bilinear: true  # 是否使用双线性插值上采样
+
+# 训练超参数
+train:
+  epochs: 1
+  batch_size: 2
+  num_workers: 8
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_scheduler:
+    type: StepLR
+    step_size: 30
+    gamma: 0.1
+
+# 优化器设置
+optimizer:
+  type: Adam
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+# 数据集配置
+dataset:
+  name: voc
+  root: VOC2012
+  year: 2012
+  image_set: train
+  size: [512, 512]  # 输入图像尺寸
+  transform:
+    train:
+      - name: RandomResize
+        min_size: 480
+        max_size: 640
+      - name: RandomCrop
+        size: [512, 512]
+      - name: RandomHorizontalFlip
+        prob: 0.5
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      - name: Resize
+        size: [512, 512]
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 损失函数配置
+loss:
+  type: CrossEntropyLoss
+  ignore_index: 255  # 忽略的标签值
+
+# 评估指标
+metrics:
+  - name: mIoU  # 平均交并比
+  - name: Pixel Accuracy  # 像素准确率
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/unet
+  save_freq: 10  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mIoU  # 用于选择最佳模型的指标

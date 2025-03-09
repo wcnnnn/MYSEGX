@@ -1,0 +1,75 @@
+# DETR模型配置文件
+
+# 模型架构参数
+model:
+  name: detr
+  backbone_type: resnet101  # 主干网络类型，可选：resnet18, resnet34, resnet50, resnet101, vgg16, vgg19, mobilenetv2, mobilenetv3small, mobilenetv3large
+  num_classes: 20  # VOC数据集类别数
+  hidden_dim: 256
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.1
+  num_queries: 100
+  activation: relu
+
+# 训练超参数
+train:
+  epochs: 1
+  batch_size: 8
+  num_workers: 8
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_drop: 200  # 学习率衰减轮次
+  clip_max_norm: 0.1  # 梯度裁剪阈值
+
+# 优化器设置
+optimizer:
+  type: AdamW
+  backbone_lr: 1.0e-5  # 主干网络学习率
+  backbone_weight_decay: 1.0e-4
+
+# 数据集配置
+dataset:
+  name: voc
+  root: VOC2012
+  year: 2012
+  image_set: train
+  size: [640, 640]  # 添加默认图像尺寸
+  transform:
+    train:
+      - name: RandomResize
+        min_size: 480
+        max_size: 800
+      - name: RandomHorizontalFlip
+        prob: 0.5
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      - name: Resize
+        size: 800
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 损失函数权重
+loss_weights:
+  ce: 1.0  # 分类损失权重
+  mask: 1.0  # 掩码损失权重
+  dice: 1.0  # Dice损失权重
+
+# 评估指标
+metrics:
+  - name: mIoU  # 平均交并比
+  - name: mAP  # 平均精度
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/detr
+  save_freq: 10  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mIoU  # 用于选择最佳模型的指标
