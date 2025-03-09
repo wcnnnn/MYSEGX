@@ -1,7 +1,16 @@
 <div align="center">
-    <img src="logo.jpg" alt="MYSEGX Logo" width="600"/>
+    <img src="assets/logo.png" alt="MYSEGX Logo" width="600"/>
+    <p>
+        <em>🚀 简单、高效、易用的图像分割框架</em>
+    </p>
+    <p>
+        <a href="LICENSE">
+            <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+        </a>
+        <img alt="Python" src="https://img.shields.io/badge/python-3.7%2B-blue"/>
+        <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-1.7%2B-orange"/>
+    </p>
 </div>
-
 ## 📌 简介
 
 MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解决方案。框架支持多种分割模型，包括 DETR、UNet并提供完整的训练和评估流程。
