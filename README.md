@@ -1,5 +1,3 @@
-# MYSEGX 图像分割框架
-
 <div align="center">
     <img src="logo.jpg" alt="MYSEGX Logo" width="600"/>
 </div>
