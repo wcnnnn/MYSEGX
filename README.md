@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="31e35362ef2bbdf308d4505942268457.jpg" alt="MYSEGX Logo" width="600"/>
+    <img src="LOGO.jpg" alt="MYSEGX Logo" width="600"/>
     <p>
         <em>🚀 简单、高效、易用的图像分割框架</em>
     </p>
