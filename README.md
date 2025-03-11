@@ -1,7 +1,17 @@
 # MYSEGX 图像分割框架
 
 <div align="center">
-    <img src="MYSEGX.png" alt="MYSEGX Logo" width="600"/>
+    <img src="assets/logo.png" alt="MYSEGX Logo" width="600"/>
+    <p>
+        <em>🚀 简单、高效、易用的图像分割框架</em>
+    </p>
+    <p>
+        <a href="LICENSE">
+            <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+        </a>
+        <img alt="Python" src="https://img.shields.io/badge/python-3.7%2B-blue"/>
+        <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-1.7%2B-orange"/>
+    </p>
 </div>
 
 ## 📌 简介
@@ -10,7 +20,7 @@ MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解�
 
 ## ✨ 特性
 
-- 🚀 支持多种主流分割模型：
+- 🎯 支持多种分割模型：
   - DETR（End-to-End Object Detection）
   - UNet（经典U型网络）
   - CNN（轻量级卷积网络）
@@ -24,9 +34,12 @@ cd MYSEGX
 
 # 安装依赖
 pip install -r requirements.txt
+
+# 安装 MYSEGX
+pip install -e .
 ```
 
-## 📚 使用方法
+## 📚 使用指南
 
 ### 1. 准备数据
 将数据集组织为以下结构：
@@ -41,22 +54,14 @@ data/VOC2012/
 ```
 
 ### 2. 配置模型
-在 `configs/models/` 目录下创建或修改模型配置文件：
-```yaml
-model:
-  name: 'cnn'  # 或 'unet', 'detr'
-  n_channels: 3
-  n_classes: 21
-
-train:
-  batch_size: 4
-  learning_rate: 0.001
-  epochs: 100
-```
+在 `configs/models/` 目录下创建或修改配置文件。
 
 ### 3. 训练模型
-```bash
-python scripts/train_unified.py --config configs/models/detr/detr_r18.yaml
+```python
+from MYSEGX import train
+
+# 使用配置文件训练模型
+history = train('configs/models/detr/detr_r18.yaml')
 ```
 
 ### 4. 评估和预测

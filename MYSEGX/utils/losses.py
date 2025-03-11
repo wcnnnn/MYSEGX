@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import logging
 
 class DiceLoss(nn.Module):
     """Dice损失函数
@@ -92,198 +93,188 @@ class FocalLoss(nn.Module):
 class DETRLoss(nn.Module):
     """DETR损失函数
     
-    计算DETR模型的总损失，包括分类损失、掩码损失和匹配损失。
+    计算DETR模型的总损失，包括语义分割和实例分割两种模式。
     
     参数:
         num_classes (int): 类别数量
-        matcher (nn.Module): 匈牙利匹配器
+        matcher (nn.Module): 匈牙利匹配器，仅用于实例分割
         weight_dict (dict): 损失权重字典
-        eos_coef (float): 背景类别的权重系数
+        task_type (str): 任务类型，'semantic'或'instance'
+        eos_coef (float): 背景类别的权重系数，仅用于实例分割
     """
-    def __init__(self, num_classes, matcher, weight_dict, eos_coef=0.1):
+    def __init__(self, num_classes, matcher=None, weight_dict=None, task_type='semantic', eos_coef=0.1):
         super().__init__()
         self.num_classes = num_classes
         self.matcher = matcher
-        self.weight_dict = weight_dict
-        self.eos_coef = eos_coef
+        self.weight_dict = weight_dict or {'ce': 1.0, 'mask': 1.0, 'dice': 1.0}
+        self.task_type = task_type
         
-        # 分类损失
-        empty_weight = torch.ones(num_classes + 1)
-        empty_weight[-1] = self.eos_coef  # 背景类权重
-        self.register_buffer('empty_weight', empty_weight)
+        # 分类损失权重 - 仅用于实例分割
+        if task_type == 'instance':
+            empty_weight = torch.ones(num_classes)
+            empty_weight[0] = eos_coef  # 背景类权重
+            self.register_buffer('empty_weight', empty_weight)
         
         # 掩码损失
         self.dice_loss = DiceLoss()
         self.focal_loss = FocalLoss()
+        self.ce_loss = CrossEntropyLoss(ignore_index=255)
         
-    def loss_labels(self, outputs, targets, indices):
-        """计算分类损失
-        
-        参数:
-            outputs (dict): 模型输出字典
-                - pred_logits: 预测的类别logits, shape (batch_size, num_queries, num_classes)
-            targets (list[dict]): 目标字典列表，每个字典包含:
-                - labels: 类别标签, shape (num_instances,)
-            indices (list[tuple]): 匹配索引列表，每个元组包含:
-                - src_idx: 源序列索引, shape (num_queries,)
-                - tgt_idx: 目标序列索引, shape (num_instances,)
-                
-        返回:
-            loss (dict): 分类损失字典
-        """
-        src_logits = outputs['pred_logits']  # (batch_size, num_queries, num_classes)
-        
-        # 记录输入形状
-        # print(f"\nComputing classification loss:")
-        # print(f"src_logits shape: {src_logits.shape}")
-        
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t['labels'][J] for t, (_, J) in zip(targets, indices)])
-        # print(f"target_classes_o shape: {target_classes_o.shape}")
-        # print(f"target_classes_o values: {target_classes_o}")
-        
-        # 创建目标类别张量，初始化为背景类 (num_classes)
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                  dtype=torch.int64, device=src_logits.device)
-        # print(f"target_classes initial shape: {target_classes.shape}")
-        
-        # 将匹配的预测分配给对应的真实类别
-        target_classes[idx] = target_classes_o
-        # print(f"target_classes final shape: {target_classes.shape}")
-        # print(f"target_classes unique values: {torch.unique(target_classes)}")
-        
-        # 确保empty_weight设备正确
-        empty_weight = self.empty_weight.to(src_logits.device)
-        # print(f"empty_weight shape: {empty_weight.shape}")
-        # print(f"empty_weight values: {empty_weight}")
-        
-        # 计算交叉熵损失
-        loss_ce = F.cross_entropy(
-            src_logits.reshape(-1, src_logits.shape[-1]),  # (batch_size * num_queries, num_classes)
-            target_classes.reshape(-1),                     # (batch_size * num_queries,)
-            weight=empty_weight,
-            reduction='mean'
-        )
-        
-        return {'loss_ce': loss_ce}
-    
-    def loss_masks(self, outputs, targets, indices):
-        """计算掩码损失
-        
-        参数:
-            outputs (dict): 模型输出字典
-                - pred_masks: 预测的分割掩码, shape (batch_size, num_queries, H, W)
-            targets (list[dict]): 目标字典列表，每个字典包含:
-                - masks: 分割掩码, shape (num_instances, H, W)
-            indices (list[tuple]): 匹配索引列表，每个元组包含:
-                - src_idx: 源序列索引, shape (num_queries,)
-                - tgt_idx: 目标序列索引, shape (num_instances,)
-                
-        返回:
-            loss (dict): 掩码损失字典
-        """
-        src_idx = self._get_src_permutation_idx(indices)
-        batch_idx, src_idx = src_idx
-        
-        # 获取匹配的预测掩码和目标掩码
-        src_masks = outputs['pred_masks']  # (B, N, H, W)
-        target_masks = torch.cat([t['masks'][i] for t, (_, i) in zip(targets, indices)])  # (M, H, W)
-        
-        # print(f"\nComputing mask loss:")
-        # print(f"src_masks shape: {src_masks.shape}")
-        # print(f"target_masks shape: {target_masks.shape}")
-        # print(f"batch_idx: {batch_idx}")
-        # print(f"src_idx: {src_idx}")
-        
-        # 提取匹配的预测掩码
-        src_masks = src_masks[batch_idx, src_idx]  # (M, H, W)
-        # print(f"Matched src_masks shape: {src_masks.shape}")
-        
-        # 确保预测掩码和目标掩码具有相同的空间维度
-        if src_masks.shape[-2:] != target_masks.shape[-2:]:
-            # 将目标掩码下采样到预测掩码的尺寸
-            target_masks = F.interpolate(
-                target_masks.unsqueeze(1).float(),  # (M, 1, H, W)
-                size=src_masks.shape[-2:],          # (h, w)
-                mode='nearest'
-            ).squeeze(1)  # (M, h, w)
-            # print(f"Interpolated target_masks shape: {target_masks.shape}")
-        
-        # 将预测掩码转换为概率
-        src_masks = src_masks.sigmoid()
-        
-        # 计算Dice损失
-        num_masks = src_masks.shape[0]
-        if num_masks == 0:
-            loss_dice = src_masks.sum() * 0
-            loss_focal = src_masks.sum() * 0
-        else:
-            # 展平掩码进行损失计算
-            src_masks = src_masks.flatten(1)    # (num_masks, H*W)
-            target_masks = target_masks.flatten(1)  # (num_masks, H*W)
-            
-            # 计算Dice损失
-            numerator = 2 * (src_masks * target_masks).sum(1)
-            denominator = src_masks.sum(1) + target_masks.sum(1)
-            loss_dice = 1 - (numerator + 1e-6) / (denominator + 1e-6)
-            loss_dice = loss_dice.mean()
-            
-            # 计算Focal损失
-            loss_focal = F.binary_cross_entropy_with_logits(
-                src_masks, target_masks, reduction='none')
-            
-            # 应用focal权重
-            pt = torch.exp(-loss_focal)
-            loss_focal = ((1 - pt) ** 2 * loss_focal).mean()
-        
-        return {
-            'loss_dice': loss_dice,
-            'loss_focal': loss_focal
-        }
-    
     def _get_src_permutation_idx(self, indices):
-        """获取源序列的排列索引"""
-        batch_idx = torch.cat([torch.full_like(src, i) 
-                             for i, (src, _) in enumerate(indices)])
+        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
-    
+
+    def _get_tgt_permutation_idx(self, indices):
+        batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
+        tgt_idx = torch.cat([tgt for (_, tgt) in indices])
+        return batch_idx, tgt_idx
+        
     def forward(self, outputs, targets):
         """前向传播
         
         参数:
             outputs (dict): 模型输出字典
-                - pred_logits: 预测的类别logits, shape (batch_size, num_queries, num_classes)
-                - pred_masks: 预测的分割掩码, shape (batch_size, num_queries, H, W)
-            targets (list[dict]): 目标字典列表，每个字典包含:
-                - labels: 类别标签, shape (num_instances,)
-                - masks: 分割掩码, shape (num_instances, H, W)
-                
-        返回:
-            losses (dict): 损失字典
+                - pred_logits: 预测的类别logits (仅实例分割)
+                - pred_masks: 预测的分割掩码
+                    - 语义分割: (B, C, H, W)
+                    - 实例分割: (B, Q, H, W)
+            targets (list[dict]): 目标字典列表
+                - semantic_mask: 语义分割掩码 (B, H, W)
+                - labels: 类别标签 (仅实例分割)
         """
-        # 记录输入形状
-        # print(f"\nDETRLoss forward:")
-        # print(f"pred_logits shape: {outputs['pred_logits'].shape}")
-        # print(f"pred_masks shape: {outputs['pred_masks'].shape}")
-        for i, t in enumerate(targets):
-            # print(f"target {i} - labels shape: {t['labels'].shape}, masks shape: {t['masks'].shape}")
-            pass
+        if self.task_type == 'semantic':
+            # 语义分割模式
+            logging.debug("DETRLoss - Semantic segmentation mode")
+            pred_masks = outputs['pred_masks']  # (B, C, H, W)
+            logging.debug(f"Pred masks: shape={pred_masks.shape}, range=[{pred_masks.min().item():.3f}, {pred_masks.max().item():.3f}]")
             
-        # 匈牙利匹配
-        indices = self.matcher(outputs['pred_logits'], outputs['pred_masks'],
-                             [t['labels'] for t in targets],
-                             [t['masks'] for t in targets])
-        
-        # 计算所有损失
-        losses = {}
-        losses.update(self.loss_labels(outputs, targets, indices))
-        losses.update(self.loss_masks(outputs, targets, indices))
-        
-        # 应用损失权重
-        return {k: v * self.weight_dict[k] 
-                for k, v in losses.items() 
-                if k in self.weight_dict}
+            target_masks = torch.stack([t['semantic_mask'] for t in targets])  # (B, H, W)
+            logging.debug(f"Target masks: shape={target_masks.shape}, range=[{target_masks.min().item()}, {target_masks.max().item()}]")
+            
+            # 将目标掩码下采样到预测掩码的大小
+            target_masks = F.interpolate(
+                target_masks.unsqueeze(1).float(),
+                size=pred_masks.shape[-2:],
+                mode='nearest'
+            ).squeeze(1).long()
+            logging.debug(f"Resized targets: shape={target_masks.shape}, range=[{target_masks.min().item()}, {target_masks.max().item()}]")
+            
+            # 确保目标掩码在有效范围内
+            target_masks = torch.clamp(target_masks, 0, self.num_classes - 1)
+            
+            # 检查设备
+            if pred_masks.device != target_masks.device:
+                logging.warning(f"Device mismatch - pred: {pred_masks.device}, target: {target_masks.device}")
+                target_masks = target_masks.to(pred_masks.device)
+            
+            # 计算交叉熵损失
+            try:
+                loss_ce = self.ce_loss(pred_masks, target_masks)
+                logging.debug(f"CE loss computed: {loss_ce.item():.3f}")
+            except Exception as e:
+                logging.error(f"Error computing CE loss: {str(e)}")
+                raise
+            
+            # 计算每个类别的Dice损失
+            loss_dice = 0
+            try:
+                for c in range(1, self.num_classes):  # 跳过背景类
+                    pred_c = pred_masks[:, c]  # (B, H, W)
+                    target_c = (target_masks == c).float()  # (B, H, W)
+                    if target_c.sum() > 0:  # 只在存在当前类别时计算损失
+                        class_dice_loss = self.dice_loss(pred_c, target_c)
+                        loss_dice += class_dice_loss
+                        logging.debug(f"Class {c} Dice loss: {class_dice_loss.item():.3f}")
+                loss_dice /= (self.num_classes - 1)  # 平均每个类别的损失
+                logging.debug(f"Average Dice loss: {loss_dice.item():.3f}")
+            except Exception as e:
+                logging.error(f"Error computing Dice loss: {str(e)}")
+                raise
+            
+            # 返回损失字典
+            losses = {
+                'loss_ce': loss_ce * self.weight_dict['ce'],
+                'loss_dice': loss_dice * self.weight_dict['dice']
+            }
+            logging.debug(f"Final weighted losses - CE: {losses['loss_ce'].item():.3f}, Dice: {losses['loss_dice'].item():.3f}")
+            return losses
+            
+        else:  # instance
+            # 获取设备信息
+            device = outputs['pred_logits'].device
+            
+            # 准备目标掩码和标签
+            batch_size = len(targets)
+            target_masks = []
+            target_labels = []
+            
+            for i in range(batch_size):
+                # 获取语义分割掩码
+                semantic_mask = targets[i]['semantic_mask']  # (H, W)
+                unique_labels = targets[i]['labels']  # 存在的类别标签
+                
+                # 为每个类别创建二值掩码
+                for label in unique_labels:
+                    if label == 0:  # 跳过背景类
+                        continue
+                    binary_mask = (semantic_mask == label).float()  # (H, W)
+                    target_masks.append(binary_mask)
+                    target_labels.append(label)
+            
+            if not target_masks:  # 如果没有前景对象
+                target_masks = torch.zeros((1, *outputs['pred_masks'].shape[-2:]), device=device)
+                target_labels = torch.tensor([0], device=device)
+            else:
+                target_masks = torch.stack(target_masks)  # (N, H, W)
+                target_labels = torch.tensor(target_labels, device=device)  # (N,)
+            
+            # 将目标重组为列表格式
+            targets_formatted = [{
+                'masks': target_masks,
+                'labels': target_labels
+            }]
+            
+            # 计算匹配
+            indices = self.matcher(outputs, targets_formatted)
+            
+            # 计算分类损失
+            src_logits = outputs['pred_logits']  # (B, Q, C)
+            idx = self._get_src_permutation_idx(indices)
+            target_classes_o = torch.cat([t['labels'][J] for t, (_, J) in zip(targets_formatted, indices)])
+            
+            target_classes = torch.full(src_logits.shape[:2], 0,
+                                      dtype=torch.int64, device=src_logits.device)
+            target_classes[idx] = target_classes_o
+            
+            loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes,
+                                    weight=self.empty_weight.to(device))
+            
+            # 计算掩码损失
+            src_masks = outputs['pred_masks']  # (B, Q, H, W)
+            
+            # 获取匹配的掩码
+            src_masks = src_masks[idx]  # (N, H, W)
+            target_masks = torch.cat([t['masks'][i] for t, (_, i) in zip(targets_formatted, indices)])
+            
+            # 将目标掩码下采样到源掩码大小
+            target_masks = F.interpolate(
+                target_masks.unsqueeze(1).float(),
+                size=src_masks.shape[-2:],
+                mode='nearest'
+            ).squeeze(1)
+            
+            # 计算Dice损失和Focal损失
+            loss_dice = self.dice_loss(src_masks, target_masks)
+            loss_focal = self.focal_loss(src_masks, target_masks)
+            
+            # 组合所有损失
+            losses = {
+                'loss_ce': loss_ce * self.weight_dict['ce'],
+                'loss_mask': loss_focal * self.weight_dict['mask'],
+                'loss_dice': loss_dice * self.weight_dict['dice']
+            }
+            return losses
 
 class CrossEntropyLoss(nn.Module):
     """交叉熵损失函数
@@ -305,35 +296,44 @@ class CrossEntropyLoss(nn.Module):
         """前向传播
         
         参数:
-            pred_masks (Tensor): 预测掩码, shape (N, H, W)
+            pred_masks (Tensor): 预测掩码, shape (N, C, H, W)
             gt_masks (Tensor): 真实掩码, shape (N, H, W)
             weights (Tensor): 样本权重, shape (N,)
             
         返回:
             loss (Tensor): 交叉熵损失
         """
-        # 创建掩码来标识需要忽略的位置
-        mask = gt_masks != self.ignore_index
+        logging.debug(f"CrossEntropyLoss input shapes - pred: {pred_masks.shape}, gt: {gt_masks.shape}")
+        logging.debug(f"Pred range: [{pred_masks.min().item():.3f}, {pred_masks.max().item():.3f}]")
+        logging.debug(f"GT range: [{gt_masks.min().item()}, {gt_masks.max().item()}]")
         
-        # 将预测和真实掩码展平
-        pred_flat = pred_masks.flatten(1)
-        gt_flat = gt_masks.flatten(1)
-        mask_flat = mask.flatten(1)
-        
-        # 只计算非忽略位置的损失
-        loss = F.binary_cross_entropy_with_logits(
-            pred_flat[mask_flat],
-            gt_flat[mask_flat],
-            weight=self.weight,
-            reduction='none'
-        )
-        
-        if weights is not None:
-            loss = loss * weights.unsqueeze(1)
+        if self.weight is not None:
+            logging.debug(f"Weight tensor shape: {self.weight.shape}")
             
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        else:
+        if weights is not None:
+            logging.debug(f"Sample weights shape: {weights.shape}")
+        
+        # 检查设备
+        if pred_masks.device != gt_masks.device:
+            logging.warning(f"Device mismatch - pred: {pred_masks.device}, gt: {gt_masks.device}")
+            gt_masks = gt_masks.to(pred_masks.device)
+        
+        # 检查gt_masks的值域
+        unique_labels = torch.unique(gt_masks)
+        logging.debug(f"Unique labels in gt_masks: {unique_labels.tolist()}")
+        if self.ignore_index != 255:
+            logging.debug(f"Using custom ignore_index: {self.ignore_index}")
+        
+        try:
+            loss = F.cross_entropy(
+                pred_masks,
+                gt_masks,
+                weight=self.weight,
+                reduction=self.reduction,
+                ignore_index=self.ignore_index
+            )
+            logging.debug(f"Loss computed successfully: {loss.item():.3f}")
             return loss
+        except Exception as e:
+            logging.error(f"Error computing cross entropy loss: {str(e)}")
+            raise

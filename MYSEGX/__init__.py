@@ -1,5 +1,4 @@
-"""
-MYSEGX
+"""MYSEGX
 ~~~~~
 
 现代化图像分割框架，支持DETR、UNet和CNN等多种模型。
@@ -21,5 +20,5 @@ from MYSEGX.api import train
 
 __all__ = [
     'build_model',
-    'train',
+     'train',
 ]

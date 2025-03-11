@@ -1,0 +1,269 @@
+PS D:\My_SegFra> python tests/test_detr.py
+权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\resnet18-5c106cde.pth
+d:\my_segfra\MYSEGX\nn\backbones\resnet.py:142: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state_dict = torch.load(weights_path)
+D:\anaconda\envs\pytorch\Lib\site-packages\torch\serialization.py:1485: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+  tar.extract("storages", path=tmpdir)
+D:\anaconda\envs\pytorch\Lib\site-packages\torch\serialization.py:1517: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+  tar.extract("tensors", path=tmpdir)
+[DEBUG] SemanticMaskHead初始化 - 主干网络: resnet18
+[DEBUG] FPN维度: [512, 256, 128, 64]
+[DEBUG] 输入投影层配置: 输入通道=512, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 64, 200, 200]), range=[0.000, 5.807]
+Level 2: shape=torch.Size([2, 128, 100, 100]), range=[0.000, 7.674]
+Level 3: shape=torch.Size([2, 256, 50, 50]), range=[0.000, 5.218]
+Level 4: shape=torch.Size([2, 512, 25, 25]), range=[0.000, 20.727]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-6.063, 6.612]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-6.542, 8.255]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-4.411, 4.418]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-4.300, 4.382]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-4.265, 4.250]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-4.269, 4.259]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-4.216, 4.383]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-4.267, 4.307]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 4
+  特征[0]: shape=torch.Size([2, 64, 200, 200]), 范围=[0.000, 5.807]
+  特征[1]: shape=torch.Size([2, 128, 100, 100]), 范围=[0.000, 7.674]
+  特征[2]: shape=torch.Size([2, 256, 50, 50]), 范围=[0.000, 5.218]
+  特征[3]: shape=torch.Size([2, 512, 25, 25]), 范围=[0.000, 20.727]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-6.073, 9.425]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-5.466, 10.405]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-5.742, 10.886]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 7.053]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-0.994, 0.988]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-0.994, 0.988]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\resnet34-333f7ec4.pth
+d:\my_segfra\MYSEGX\nn\backbones\resnet.py:154: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state_dict = torch.load(weights_path)
+[DEBUG] SemanticMaskHead初始化 - 主干网络: resnet34
+[DEBUG] FPN维度: [512, 256, 128, 64]
+[DEBUG] 输入投影层配置: 输入通道=512, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 64, 200, 200]), range=[0.000, 6.990]
+Level 2: shape=torch.Size([2, 128, 100, 100]), range=[0.000, 4.629]
+Level 3: shape=torch.Size([2, 256, 50, 50]), range=[0.000, 8.020]
+Level 4: shape=torch.Size([2, 512, 25, 25]), range=[0.000, 16.624]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-8.066, 6.528]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-8.807, 7.851]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-4.441, 4.395]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-4.557, 4.599]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-4.545, 4.644]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-4.538, 4.433]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-4.592, 4.507]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-4.440, 4.332]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 4
+  特征[0]: shape=torch.Size([2, 64, 200, 200]), 范围=[0.000, 6.990]
+  特征[1]: shape=torch.Size([2, 128, 100, 100]), 范围=[0.000, 4.629]
+  特征[2]: shape=torch.Size([2, 256, 50, 50]), 范围=[0.000, 8.020]
+  特征[3]: shape=torch.Size([2, 512, 25, 25]), 范围=[0.000, 16.624]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-6.567, 14.045]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-6.638, 13.216]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-6.724, 13.812]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 9.466]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-0.993, 0.998]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-0.993, 0.998]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\resnet50-19c8e357.pth
+d:\my_segfra\MYSEGX\nn\backbones\resnet.py:166: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state_dict = torch.load(weights_path)
+[DEBUG] SemanticMaskHead初始化 - 主干网络: resnet50
+[DEBUG] FPN维度: [2048, 1024, 512, 256]
+[DEBUG] 输入投影层配置: 输入通道=2048, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 256, 200, 200]), range=[0.000, 3.886]
+Level 2: shape=torch.Size([2, 512, 100, 100]), range=[0.000, 5.181]
+Level 3: shape=torch.Size([2, 1024, 50, 50]), range=[0.000, 11.794]
+Level 4: shape=torch.Size([2, 2048, 25, 25]), range=[0.000, 21.837]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-3.968, 3.669]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-4.409, 4.756]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-4.521, 3.910]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-4.027, 3.864]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-4.013, 3.801]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-4.031, 3.713]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-3.972, 3.807]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-3.899, 3.800]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 4
+  特征[0]: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 3.886]
+  特征[1]: shape=torch.Size([2, 512, 100, 100]), 范围=[0.000, 5.181]
+  特征[2]: shape=torch.Size([2, 1024, 50, 50]), 范围=[0.000, 11.794]
+  特征[3]: shape=torch.Size([2, 2048, 25, 25]), 范围=[0.000, 21.837]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-6.200, 31.365]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-6.632, 36.865]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-6.782, 35.838]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 19.649]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\vgg16-397923af.pth
+d:\my_segfra\MYSEGX\nn\backbones\vgg.py:64: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(weights_path))
+[DEBUG] SemanticMaskHead初始化 - 主干网络: vgg16
+[DEBUG] FPN维度: [512, 512, 256, 128]
+[DEBUG] 输入投影层配置: 输入通道=512, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 64, 400, 400]), range=[0.000, 35.632]
+Level 2: shape=torch.Size([2, 128, 200, 200]), range=[0.000, 92.645]
+Level 3: shape=torch.Size([2, 256, 100, 100]), range=[0.000, 111.945]
+Level 4: shape=torch.Size([2, 512, 50, 50]), range=[0.000, 30.488]
+Level 5: shape=torch.Size([2, 512, 25, 25]), range=[0.000, 6.149]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-1.939, 1.266]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-1.938, 2.518]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-3.995, 3.591]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-3.922, 3.508]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-3.938, 3.643]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-3.990, 3.743]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-3.942, 3.673]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-3.835, 3.662]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 5
+  特征[0]: shape=torch.Size([2, 64, 400, 400]), 范围=[0.000, 35.632]
+  特征[1]: shape=torch.Size([2, 128, 200, 200]), 范围=[0.000, 92.645]
+  特征[2]: shape=torch.Size([2, 256, 100, 100]), 范围=[0.000, 111.945]
+  特征[3]: shape=torch.Size([2, 512, 50, 50]), 范围=[0.000, 30.488]
+  特征[4]: shape=torch.Size([2, 512, 25, 25]), 范围=[0.000, 6.149]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-6.507, 38.793]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-7.345, 43.306]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-8.338, 43.836]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 23.149]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\vgg19-dcbb9e9d.pth
+d:\my_segfra\MYSEGX\nn\backbones\vgg.py:71: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(weights_path))
+[DEBUG] SemanticMaskHead初始化 - 主干网络: vgg19
+[DEBUG] FPN维度: [512, 512, 256, 128]
+[DEBUG] 输入投影层配置: 输入通道=512, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 64, 400, 400]), range=[0.000, 34.130]
+Level 2: shape=torch.Size([2, 128, 200, 200]), range=[0.000, 85.029]
+Level 3: shape=torch.Size([2, 256, 100, 100]), range=[0.000, 125.250]
+Level 4: shape=torch.Size([2, 512, 50, 50]), range=[0.000, 26.093]
+Level 5: shape=torch.Size([2, 512, 25, 25]), range=[0.000, 5.357]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-1.060, 0.878]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-1.813, 2.087]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-3.718, 3.530]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-4.075, 3.344]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-4.171, 3.441]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-4.166, 3.542]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-4.358, 3.622]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-3.951, 3.840]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 5
+  特征[0]: shape=torch.Size([2, 64, 400, 400]), 范围=[0.000, 34.130]
+  特征[1]: shape=torch.Size([2, 128, 200, 200]), 范围=[0.000, 85.029]
+  特征[2]: shape=torch.Size([2, 256, 100, 100]), 范围=[0.000, 125.250]
+  特征[3]: shape=torch.Size([2, 512, 50, 50]), 范围=[0.000, 26.093]
+  特征[4]: shape=torch.Size([2, 512, 25, 25]), 范围=[0.000, 5.357]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-9.714, 49.703]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-9.518, 52.795]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-9.570, 57.389]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 23.811]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+.权重文件已存在: C:\Users\30766\.cache\torch\hub\checkpoints\resnet50-19c8e357.pth
+[DEBUG] SemanticMaskHead初始化 - 主干网络: resnet50
+[DEBUG] FPN维度: [2048, 1024, 512, 256]
+[DEBUG] 输入投影层配置: 输入通道=2048, 输出通道=256
+
+[DEBUG] 输入图像形状: torch.Size([2, 3, 800, 800])
+
+[DEBUG] Backbone特征金字塔输出:
+Level 1: shape=torch.Size([2, 256, 200, 200]), range=[0.000, 3.672]
+Level 2: shape=torch.Size([2, 512, 100, 100]), range=[0.000, 5.025]
+Level 3: shape=torch.Size([2, 1024, 50, 50]), range=[0.000, 11.797]
+Level 4: shape=torch.Size([2, 2048, 25, 25]), range=[0.000, 22.931]
+
+[DEBUG] 特征投影后: shape=torch.Size([2, 256, 25, 25]), range=[-2.977, 3.587]
+
+[DEBUG] Transformer输入序列: shape=torch.Size([625, 2, 256])
+[DEBUG] 位置编码: shape=torch.Size([625, 2, 256]), range=[-3.823, 4.962]
+[DEBUG] 编码器层1输出: shape=torch.Size([625, 2, 256]), range=[-4.284, 4.265]
+[DEBUG] 编码器层2输出: shape=torch.Size([625, 2, 256]), range=[-4.294, 4.418]
+[DEBUG] 编码器层3输出: shape=torch.Size([625, 2, 256]), range=[-4.138, 4.258]
+[DEBUG] 编码器层4输出: shape=torch.Size([625, 2, 256]), range=[-4.235, 4.260]
+[DEBUG] 编码器层5输出: shape=torch.Size([625, 2, 256]), range=[-4.265, 4.369]
+[DEBUG] 编码器层6输出: shape=torch.Size([625, 2, 256]), range=[-4.363, 4.285]
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 4
+
+[DEBUG] 执行语义分割分支
+
+
+[DEBUG] 执行语义分割分支
+
+
+
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] 执行语义分割分支
+
+
+[DEBUG] 执行语义分割分支
+
+[DEBUG] SemanticMaskHead.forward - 特征列表长度: 4
+  特征[0]: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 3.672]
+  特征[1]: shape=torch.Size([2, 512, 100, 100]), 范围=[0.000, 5.025]
+  特征[2]: shape=torch.Size([2, 1024, 50, 50]), 范围=[0.000, 11.797]
+  特征[3]: shape=torch.Size([2, 2048, 25, 25]), 范围=[0.000, 22.931]
+[DEBUG] FPN块1输出: shape=torch.Size([2, 256, 50, 50]), 范围=[-6.629, 26.688]
+[DEBUG] FPN块2输出: shape=torch.Size([2, 256, 100, 100]), 范围=[-6.359, 28.494]
+[DEBUG] FPN块3输出: shape=torch.Size([2, 256, 200, 200]), 范围=[-6.529, 29.023]
+[DEBUG] 解码器输出: shape=torch.Size([2, 256, 200, 200]), 范围=[0.000, 21.203]
+[DEBUG] 预测掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 最终掩码: shape=torch.Size([2, 20, 200, 200]), 范围=[-1.000, 1.000]
+[DEBUG] 语义分割掩码输出: shape=torch.Size([2, 20, 200, 200])
+.
+----------------------------------------------------------------------
+Ran 2 tests in 11.781s
+
+OK

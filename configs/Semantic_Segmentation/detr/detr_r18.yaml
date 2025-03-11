@@ -1,0 +1,81 @@
+# DETR模型配置文件
+
+# 任务和模型类型
+task:
+  type: semantic  # 任务类型：semantic 或 instance
+  model_type: detr  # 模型类型：detr, unet, saunet, cnn
+
+# 模型架构参数
+model:
+  name: detr
+  backbone_type: resnet18  # 主干网络类型，可选：resnet18, resnet34, resnet50, resnet101
+  num_classes: 21  # VOC数据集类别数（包括背景）
+  hidden_dim: 256
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 1024  # 减小前馈网络维度以节省内存
+  dropout: 0.1
+  num_queries: 100
+  activation: relu
+
+# 训练超参数
+train:
+  epochs: 50
+  batch_size: 8  # 减小批次大小以适应GPU内存
+  num_workers: 8  # 减少工作进程数以减少内存使用
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_drop: 200  # 学习率衰减轮次
+  clip_max_norm: 0.1  # 梯度裁剪阈值
+
+# 优化器设置
+optimizer:
+  type: AdamW
+  backbone_lr: 1.0e-5  # 主干网络学习率
+  backbone_weight_decay: 1.0e-4
+
+# 数据集配置
+dataset:
+  name: voc  # 数据集名称
+  root: data/VOC2012  # 数据集根目录
+  size: [200, 200]  # 修改为与模型输出大小匹配
+  transform:
+    train:
+      - name: RandomResize
+        min_size: 200
+        max_size: 200
+      - name: RandomHorizontalFlip
+        prob: 0.5
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      - name: Resize
+        size: 200
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 损失函数权重
+loss:
+  ce: 1.0  # 交叉熵损失权重
+  dice: 1.0  # Dice损失权重
+  ignore_index: 255  # 忽略的标签值
+
+# 评估指标
+metrics:
+  # 分割质量相关指标
+  - name: mIoU  # 平均交并比
+  - name: pixel_accuracy  # 像素准确率
+  - name: mean_accuracy  # 平均准确率
+  - name: frequency_weighted_iou  # 频率加权IoU
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/semantic/detr  # 更新保存路径以反映任务类型
+  save_freq: 10  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mIoU  # 用于选择最佳模型的指标

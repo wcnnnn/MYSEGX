@@ -23,7 +23,7 @@ def main():
     logger = setup_logger('MySegX', 'logs/train.log')
     
     # 加载配置文件
-    config_path = 'configs/models/detr/detr.yaml'
+    config_path = 'configs/models/detr/detr_r18.yaml'
     config = load_config(config_path)
     logger.info(f"加载配置文件: {config_path}")
     

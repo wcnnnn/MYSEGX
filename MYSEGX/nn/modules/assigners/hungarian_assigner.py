@@ -89,75 +89,53 @@ class HungarianAssigner(nn.Module):
             
         return indices
     
-    def compute_mask_cost(self, pred_masks, gt_masks):
-        """计算掩码代价
-        
-        使用二值交叉熵计算掩码代价。
-        
-        参数:
-            pred_masks (Tensor): 预测掩码, shape (N, H, W)
-            gt_masks (Tensor): 真实掩码, shape (M, H, W)
-            
-        返回:
-            cost_mask (Tensor): 掩码代价矩阵, shape (N, M)
-        """
-        #print("\nComputing mask cost:")
-        #print(f"Input pred_masks shape: {pred_masks.shape}")
-        #print(f"Input gt_masks shape: {gt_masks.shape}")
+    def compute_mask_cost(self, pred_masks, target_masks):
+        """计算掩码代价"""
+        device = pred_masks.device
+        pred_masks = pred_masks.to(device)
+        target_masks = target_masks.to(device)
         
         # 展平掩码
         pred_masks = pred_masks.flatten(1)  # (N, H*W)
-        gt_masks = gt_masks.flatten(1)      # (M, H*W)
-        #print(f"Flattened pred_masks shape: {pred_masks.shape}")
-        #print(f"Flattened gt_masks shape: {gt_masks.shape}")
+        target_masks = target_masks.flatten(1)  # (M, H*W)
         
         # 计算二值交叉熵
         pred_masks = pred_masks.sigmoid()
         
+        # 确保在同一设备上计算
+        pred_masks = pred_masks.to(device)
+        target_masks = target_masks.to(device)
+        
         # 计算正样本代价 (N, M, H*W)
-        pos_cost = -(pred_masks.unsqueeze(1) * gt_masks.unsqueeze(0))
-        #print(f"pos_cost shape: {pos_cost.shape}")
+        pos_cost = -(pred_masks.unsqueeze(1) * target_masks.unsqueeze(0))
         
         # 计算负样本代价 (N, M, H*W)
-        neg_cost = -((1 - pred_masks).unsqueeze(1) * (1 - gt_masks).unsqueeze(0))
-        #print(f"neg_cost shape: {neg_cost.shape}")
+        neg_cost = -((1 - pred_masks).unsqueeze(1) * (1 - target_masks).unsqueeze(0))
         
         # 在空间维度上取平均
         cost_mask = pos_cost.mean(2) + neg_cost.mean(2)  # (N, M)
-        #print(f"Final cost_mask shape: {cost_mask.shape}")
         return cost_mask
     
-    def compute_dice_cost(self, pred_masks, gt_masks):
-        """计算Dice代价
-        
-        使用Dice系数计算掩码代价。
-        
-        参数:
-            pred_masks (Tensor): 预测掩码, shape (N, H, W)
-            gt_masks (Tensor): 真实掩码, shape (M, H, W)
-            
-        返回:
-            cost_dice (Tensor): Dice代价矩阵, shape (N, M)
-        """
-        #print("\nComputing dice cost:")
-        #print(f"Input pred_masks shape: {pred_masks.shape}")
-        #print(f"Input gt_masks shape: {gt_masks.shape}")
+    def compute_dice_cost(self, pred_masks, target_masks):
+        """计算Dice代价"""
+        device = pred_masks.device
+        pred_masks = pred_masks.to(device)
+        target_masks = target_masks.to(device)
         
         # 展平掩码
         pred_masks = pred_masks.flatten(1).sigmoid()  # (N, H*W)
-        gt_masks = gt_masks.flatten(1)               # (M, H*W)
-        #print(f"Flattened pred_masks shape: {pred_masks.shape}")
-        #print(f"Flattened gt_masks shape: {gt_masks.shape}")
+        target_masks = target_masks.flatten(1)  # (M, H*W)
+        
+        # 确保在同一设备上计算
+        pred_masks = pred_masks.to(device)
+        target_masks = target_masks.to(device)
         
         # 计算分子 (N, M)
-        numerator = 2 * torch.matmul(pred_masks, gt_masks.t())
-        #print(f"numerator shape: {numerator.shape}")
+        numerator = 2 * torch.matmul(pred_masks, target_masks.t())
         
         # 计算分母 (N, M)
-        denominator = pred_masks.sum(-1).unsqueeze(1) + gt_masks.sum(-1).unsqueeze(0)
-        #print(f"denominator shape: {denominator.shape}")
+        denominator = pred_masks.sum(-1).unsqueeze(1) + target_masks.sum(-1).unsqueeze(0)
         
         # 计算Dice系数
         cost_dice = 1 - (numerator + 1) / (denominator + 1)
-        #print(f"Final cost_dice shape: {cost_dice.shape}")
         return cost_dice
