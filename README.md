@@ -16,50 +16,50 @@
 
 MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解决方案。框架支持多种分割模型。
 
-
 ### 🎯 分割任务以及参考训练脚本
 
-<table width="200%">
-<tr>
-<td align="center" width="25%">
-<b>Semantic<br/>Segmentation</b><br/>
-</td>
-<td align="center" width="25%">
-<b>Panoptic<br/>Segmentation</b><br/>
-</td>
-<td align="center" width="25%">
-<b>Instance<br/>Segmentation</b><br/>
-</td>
-<td align="center" width="25%">
-<b>3D<br/>Segmentation</b><br/>
-</td>
-</tr>
-<tr>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li><a href="docs/Semantic_Segmentation/detr.md">DETR</a></li>
-<li>UNet</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-</tr>
+<div align="center">
+  <b>Overview</b>
+</div>
+<table align="center">
+  <tbody>
+    <tr align="center" valign="center">
+      <td>
+        <b>Semantic Segmentation</b>
+      </td>
+      <td>
+        <b>Instance Segmentation</b>
+      </td>
+      <td>
+        <b>Panoptic Segmentation</b>
+      </td>
+      <td>
+        <b>3D Segmentation</b>
+      </td>
+    </tr>
+    <tr valign="top">
+      <td>
+        <ul>
+        <li><a href="docs/Semantic_Segmentation/detr.md">DETR(ECCV'2020)</a></li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li>开发中</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li>开发中</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+        <li>开发中</li>
+        </ul>
+      </td>
+  </tbody>
 </table>
-
-
 
 ## 🛠️ 安装
 
