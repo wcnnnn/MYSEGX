@@ -43,7 +43,7 @@ MYSEGX is an image segmentation framework focused on providing efficient and use
     <tr valign="top">
       <td>
         <ul>
-        <li><a href="docs/Semantic_Segmentation/detr.md">DETR (CVPR'2020)</a></li>
+        <li><a href="docs/Semantic_Segmentation/detr.md">DETR (ECCV'2020)</a></li>
         </ul>
       </td>
       <td>
