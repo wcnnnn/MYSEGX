@@ -17,7 +17,9 @@
 
 ## 📌 Introduction
 
-MYSEGX is an image segmentation framework focused on providing efficient and user-friendly segmentation solutions. The framework supports various segmentation models.
+<div align="center">
+    MYSEGX is an image segmentation framework focused on providing efficient and user-friendly segmentation solutions. The framework supports various segmentation models.
+</div>
 
 ### 🎯 Segmentation Tasks and Reference Training Scripts
 
