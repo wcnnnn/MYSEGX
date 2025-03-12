@@ -150,3 +150,15 @@ class ResultSaver:
             plot_path: 绘图保存路径
         """
         return os.path.join(self.plot_dir, f"{plot_name}.png")
+        
+    def save_checkpoint(self, checkpoint: Dict[str, Any], filename: str):
+        """保存模型检查点
+        
+        参数:
+            checkpoint: 包含模型状态等信息的字典
+            filename: 保存的文件名
+        """
+        checkpoint_dir = os.path.join(self.exp_dir, "checkpoints")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoint_path = os.path.join(checkpoint_dir, filename)
+        torch.save(checkpoint, checkpoint_path)

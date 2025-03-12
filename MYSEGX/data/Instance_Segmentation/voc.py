@@ -198,7 +198,7 @@ def collate_fn(batch):
         'target': targets
     }
 
-def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None, model_type='detr', task_type='instance'):
+def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None, model_type='detr', task_type='instance', return_dataset=False):
     """创建VOC数据集加载器
     
     参数:
@@ -209,6 +209,7 @@ def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None
         transform (callable, optional): 数据增强和预处理
         model_type (str): 模型类型，支持 'detr'、'unet'、'saunet' 和 'cnn'
         task_type (str): 任务类型，支持 'semantic' 或 'instance'
+        return_dataset (bool): 是否返回数据集对象而不是数据加载器
     """
     # 确保使用正确的任务类型
     assert task_type == 'instance', "此数据加载器仅支持实例分割任务"
@@ -225,6 +226,9 @@ def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None
         task_type=task_type
     )
     
+    if return_dataset:
+        return dataset
+        
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,

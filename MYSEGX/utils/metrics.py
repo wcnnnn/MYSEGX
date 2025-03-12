@@ -386,7 +386,7 @@ class SegmentationMetrics:
         
         # 计算基础指标的平均值
         for k, v in self.metrics.items():
-            if v:  # 只在列表非空时计算平均值
+            if k not in ['precision', 'recall', 'f1'] and v:  # 排除precision和recall
                 # 确保所有元素都是CPU上的标量值
                 cpu_values = []
                 for val in v:

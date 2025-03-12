@@ -51,6 +51,37 @@ class VOCSegmentation(Dataset):
         # 类别数量（包括背景类）
         self.num_classes = 21
         
+        # VOC数据集的调色板
+        self.palette = [
+            0, 0, 0,        # 背景 (0)
+            128, 0, 0,      # aeroplane (1)
+            0, 128, 0,      # bicycle (2)
+            128, 128, 0,    # bird (3)
+            0, 0, 128,      # boat (4)
+            128, 0, 128,    # bottle (5)
+            0, 128, 128,    # bus (6)
+            128, 128, 128,  # car (7)
+            64, 0, 0,       # cat (8)
+            192, 0, 0,      # chair (9)
+            64, 128, 0,     # cow (10)
+            192, 128, 0,    # diningtable (11)
+            64, 0, 128,     # dog (12)
+            192, 0, 128,    # horse (13)
+            64, 128, 128,   # motorbike (14)
+            192, 128, 128,  # person (15)
+            0, 64, 0,       # pottedplant (16)
+            128, 64, 0,     # sheep (17)
+            0, 192, 0,      # sofa (18)
+            128, 192, 0,    # train (19)
+            0, 64, 128      # tvmonitor (20)
+        ]
+        
+        # 创建颜色到类别的映射
+        self.color_to_class = {}
+        for i in range(self.num_classes):
+            color = tuple(self.palette[i*3:(i+1)*3])
+            self.color_to_class[color] = i
+        
         # 图像和标注路径
         self.images_dir = self.root / 'JPEGImages'
         self.masks_dir = self.root / 'SegmentationClass'
@@ -79,9 +110,19 @@ class VOCSegmentation(Dataset):
         img = cv2.imread(str(img_path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
-        # 读取分割标注
+        # 读取分割标注（使用BGR格式读取）
         mask_path = self.masks_dir / f'{img_id}.png'
-        mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+        mask_bgr = cv2.imread(str(mask_path))
+        mask_rgb = cv2.cvtColor(mask_bgr, cv2.COLOR_BGR2RGB)
+        
+        # 创建语义分割掩码
+        semantic_mask = np.zeros(mask_rgb.shape[:2], dtype=np.int64)
+        
+        # 将RGB颜色映射到类别ID
+        for y in range(mask_rgb.shape[0]):
+            for x in range(mask_rgb.shape[1]):
+                pixel_color = tuple(mask_rgb[y, x])
+                semantic_mask[y, x] = self.color_to_class.get(pixel_color, 0)  # 默认为背景类
         
         # 数据预处理
         if self.transform:
@@ -90,13 +131,12 @@ class VOCSegmentation(Dataset):
             img = transformed['image']
             
             # 转换掩码
-            h, w = mask.shape
-            mask = cv2.resize(mask, (img.shape[-1], img.shape[-2]), 
-                            interpolation=cv2.INTER_NEAREST)
+            h, w = semantic_mask.shape
+            semantic_mask = cv2.resize(semantic_mask, (img.shape[-1], img.shape[-2]), 
+                                    interpolation=cv2.INTER_NEAREST)
         
-        # 将掩码转换为张量并确保值在有效范围内
-        target = torch.as_tensor(mask, dtype=torch.long)
-        target = torch.clamp(target, 0, self.num_classes - 1)
+        # 将掩码转换为张量
+        target = torch.as_tensor(semantic_mask, dtype=torch.long)
         
         # 根据模型类型准备目标
         if self.model_type == 'detr':
@@ -153,7 +193,7 @@ def collate_fn(batch):
         'target': targets
     }
 
-def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None, model_type='detr', task_type='semantic'):
+def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None, model_type='detr', task_type='semantic', return_dataset=False):
     """创建VOC数据集加载器
     
     参数:
@@ -164,6 +204,7 @@ def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None
         transform (callable, optional): 数据增强和预处理
         model_type (str): 模型类型，支持 'detr'、'unet'、'saunet' 和 'cnn'
         task_type (str): 任务类型，支持 'semantic' 或 'instance'
+        return_dataset (bool): 是否返回数据集对象而不是数据加载器
     """
     # 确保使用正确的任务类型
     assert task_type == 'semantic', "此数据加载器仅支持语义分割任务"
@@ -179,6 +220,9 @@ def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None
         model_type=model_type
     )
     
+    if return_dataset:
+        return dataset
+        
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,

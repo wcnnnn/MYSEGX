@@ -5,6 +5,11 @@ from typing import Optional, Union, Dict, Any, List
 from pathlib import Path
 from datetime import datetime
 import importlib.util
+import threading
+import socket
+import webbrowser
+import subprocess
+from tensorboard import program
 from .models import build_model
 from .engine.trainer import Trainer
 from .utils.losses import DETRLoss
@@ -14,7 +19,10 @@ from .utils.general import load_config, setup_logger, print_banner
 from .utils.model_analyzer import analyze_model
 from .utils.plots import plot_training_curves, plot_segmentation
 from .utils.results import ResultSaver
+from .data.Semantic_Segmentation.voc import collate_fn as semantic_collate_fn
+from .data.Instance_Segmentation.voc import collate_fn as instance_collate_fn
 import sys
+import numpy as np
 
 def _find_dataset_module(task_type: str, dataset_name: str) -> Optional[str]:
     """查找数据集模块
@@ -80,6 +88,44 @@ def _load_dataloader(module_path: str) -> callable:
         raise AttributeError(f"模块 {module_name} 中未找到 dataloader 函数")
     
     return module.dataloader
+
+def _start_tensorboard(logdir: str, port: int = 6006) -> Optional[str]:
+    from .utils.general import setup_logger
+    logger = setup_logger('MYSEGX.tensorboard')
+    """
+    在后台启动TensorBoard服务
+    
+    参数:
+        logdir: TensorBoard日志目录
+        port: 要使用的端口号
+        
+    返回:
+        str: TensorBoard的URL，如果启动失败则返回None
+    """
+    def _is_port_in_use(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(('localhost', port)) == 0
+    
+    # 检查端口是否被占用，找到可用端口
+    original_port = port
+    while _is_port_in_use(port):
+        port += 1
+    if port != original_port:
+        logger.info(f"端口 {original_port} 已被占用，使用端口 {port}")
+    
+    # 构建启动命令
+    try:
+        # 直接使用 tensorboard 模块而不是命令行
+        tb = program.TensorBoard()
+        tb.configure(argv=[None, '--logdir', logdir, '--port', str(port)])
+        url = tb.launch()
+        import time
+        time.sleep(1)  # 等待服务启动
+        webbrowser.open(url)
+        return url
+    except Exception as e:
+        logger.error(f"启动TensorBoard时出错: {str(e)}")
+        return None
 
 def train(
     config_path: Optional[Union[str, Path]] = None,
@@ -288,16 +334,29 @@ def train(
     logger.info(f"训练数据集大小: {len(train_dataloader.dataset)}")
     
     val_transform = build_transforms(train=False, size=config['dataset']['size'])
-    val_dataloader = dataloader_fn(
+    val_dataset = dataloader_fn(
         root=config['dataset']['root'],
         split='val',
-        batch_size=config['train']['batch_size'],
-        num_workers=config['train']['num_workers'],
+        batch_size=1,  # 临时设置为1，后面会在DataLoader中修改
+        num_workers=0,  # 临时设置
         transform=val_transform,
         model_type=config['model']['name'],
-        task_type=task_type  # 传递任务类型到数据加载器
+        task_type=task_type,
+        return_dataset=True 
     )
-    logger.info(f"验证数据集大小: {len(val_dataloader.dataset)}")
+    
+    val_sampler = torch.utils.data.RandomSampler(val_dataset)
+    # 根据任务类型选择正确的collate_fn
+    collate_fn = semantic_collate_fn if task_type == 'semantic' else instance_collate_fn
+    
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=config['train']['batch_size'],
+        num_workers=config['train']['num_workers'],
+        sampler=val_sampler,
+        collate_fn=collate_fn  # 使用选择的collate_fn
+    )
+    logger.info(f"验证数据集大小: {len(val_dataset)}")
     
     # 创建模型
     logger.info(f"构建 {config['model']['name']} 模型...")
@@ -342,11 +401,33 @@ def train(
         'val_metrics': []
     }
     
+    # 设置TensorBoard
+    from torch.utils.tensorboard import SummaryWriter
+    tensorboard_dir = os.path.join(result_saver.exp_dir, 'tensorboard')
+    writer = SummaryWriter(log_dir=tensorboard_dir)
+    logger.info(f"TensorBoard日志保存在: {writer.log_dir}")
+    
+    # 启动TensorBoard服务
+    tensorboard_url = _start_tensorboard(tensorboard_dir)
+    if tensorboard_url:
+        logger.info(f"TensorBoard服务已启动: {tensorboard_url}")
+    else:
+        logger.warning(f"TensorBoard启动失败，请手动运行: tensorboard --logdir={tensorboard_dir}")
+    
+    # 记录模型结构图
+    dummy_input = torch.randn(1, 3, *config['dataset']['size']).to(device)
+    try:
+        writer.add_graph(model, dummy_input, use_strict_trace=False)  # 设置strict=False以允许字典输出
+        logger.info("成功添加模型结构图到TensorBoard")
+    except Exception as e:
+        logger.warning(f"添加模型结构图失败: {str(e)}")
+        logger.warning("继续训练，但不显示模型结构图")
+    
     # 开始训练
     logger.info("开始训练...")
     for epoch in range(start_epoch, config['train']['epochs']):
-        logger.info(f'\nEpoch {epoch + 1}/{config["train"]["epochs"]}')
         
+        logger.info(f'\nEpoch {epoch + 1}/{config["train"]["epochs"]}')
         # 训练一个epoch
         train_loss, train_metrics = trainer.train_epoch(train_dataloader)
         logger.info(f'Train Loss: {train_loss:.4f}')
@@ -355,8 +436,10 @@ def train(
         history['train_loss'].append(train_loss)
         history['train_metrics'].append(train_metrics)
         
-        # 打印训练指标
+        # 记录训练指标到TensorBoard
+        writer.add_scalar('Loss/train', train_loss, epoch)
         for name, value in train_metrics.items():
+            writer.add_scalar(f'Metrics/train_{name}', value, epoch)
             logger.info(f'Train {name}: {value:.4f}')
         
         # 验证
@@ -367,9 +450,67 @@ def train(
         history['val_loss'].append(val_loss)
         history['val_metrics'].append(val_metrics)
         
-        # 打印验证指标
+        # 记录验证指标到TensorBoard
+        writer.add_scalar('Loss/val', val_loss, epoch)
         for name, value in val_metrics.items():
+            writer.add_scalar(f'Metrics/val_{name}', value, epoch)
             logger.info(f'Val {name}: {value:.4f}')
+        
+        # 可视化一些分割结果
+        if (epoch + 1) % eval_interval == 0:
+            # 直接使用dataloader，它现在已经是随机顺序的
+            batch = next(iter(val_dataloader))
+            logger.info("获取随机批次用于可视化")
+            
+            print("[DEBUG] Batch structure:")
+            print(f"- Keys: {batch.keys()}")
+            print(f"- Target type: {type(batch['target'])}")
+            print(f"- Target length: {len(batch['target'])}")
+            print(f"- First target keys: {batch['target'][0].keys()}")
+            
+            images = batch['image'].to(device)
+            targets = batch['target']  # 这是一个列表，每个元素是一个字典
+            
+            with torch.no_grad():
+                outputs = model(images)
+                print(f"[DEBUG] Model outputs type: {type(outputs)}")
+                if isinstance(outputs, dict):
+                    print(f"[DEBUG] Output keys: {outputs.keys()}")
+            
+            # 获取预测结果
+            if task_type == 'semantic':
+                pred_masks = outputs.argmax(1) if isinstance(outputs, torch.Tensor) else outputs['pred_masks'].argmax(1)
+                print(f"[DEBUG] Pred masks shape: {pred_masks.shape}")
+            else:  # instance segmentation
+                pred_masks = outputs['pred_masks'].sigmoid() > 0.5
+            
+            # 添加分割结果到TensorBoard
+            for i in range(min(4, len(images))):
+                # 获取真实标签
+                target_dict = targets[i]
+                target_mask = target_dict['semantic_mask'].to(device)
+                print(f"[DEBUG] Sample {i}:")
+                print(f"- Image ID: {target_dict['image_id']}")
+                print(f"- Labels: {target_dict['labels']}")
+                print(f"- Semantic mask shape: {target_mask.shape}")
+                
+                # 根据任务类型处理预测结果
+                if task_type == 'semantic':
+                    pred_mask = pred_masks[i]
+                elif task_type == 'instance':
+                    pred_mask = pred_masks[i].sigmoid() > 0.5
+                else:  # panoptic
+                    pred_mask = np.stack([
+                        pred_masks[i]['semantic'].argmax(0).cpu().numpy(),
+                        pred_masks[i]['instance'].cpu().numpy()
+                    ], axis=-1)
+                
+                img_grid = plot_segmentation(
+                    images[i], target_mask, pred_mask,
+                    task_type=task_type,
+                    class_names=names
+                )
+                writer.add_image(f'Segmentation/sample_{i}', img_grid, epoch)
         
         # 保存检查点
         if (epoch + 1) % save_interval == 0:
@@ -384,9 +525,14 @@ def train(
             logger.info(f'保存检查点: checkpoint_epoch_{epoch + 1}.pth')
         
         # 可视化训练过程
-        if visualize:
-            plot_training_curves(history, result_saver.exp_dir)
+        #if visualize:
+            #plot_training_curves(
+                #history,
+                #save_path=os.path.join(result_saver.exp_dir, f"training_curves_epoch_{epoch+1}.png"),
+                #task_type=task_type
+            #)
     
+    writer.close()
     logger.info("训练完成!")
     return history
 

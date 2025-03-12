@@ -24,7 +24,8 @@ class SemanticMaskHead(nn.Module):
             self.target_size = None  # 使用第一层特征图的大小
         elif backbone_type.lower() in ["resnet18", "resnet34"]:
             fpn_dims = [512, 256, 128, 64]  # ResNet18/34的特征维度
-            self.target_size = (200, 200)  # 固定输出大小为200x200
+            self.target_size = None
+            #(200, 200)  # 固定输出大小为200x200
         elif backbone_type.lower() == "mobilenetv2":
             fpn_dims = [1280, 96, 32, 24]  # MobileNetV2的特征维度
             self.target_size = None
@@ -113,6 +114,10 @@ class SemanticMaskHead(nn.Module):
             masks = F.interpolate(masks, size=self.target_size, 
                                 mode='bilinear', align_corners=False)
         
+        # 上采样到固定大小
+        masks = F.interpolate(masks, size=(512, 512), mode='bilinear', align_corners=False)
+
         print(f"[DEBUG] 最终掩码: shape={masks.shape}, 范围=[{masks.min():.3f}, {masks.max():.3f}]")
         
         return masks
+

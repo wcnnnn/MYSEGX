@@ -1,7 +1,5 @@
-# MYSEGX 图像分割框架
-
 <div align="center">
-    <img src="assets/logo.png" alt="MYSEGX Logo" width="600"/>
+    <img src="LOGO.jpg" alt="MYSEGX Logo" width="600"/>
     <p>
         <em>🚀 简单、高效、易用的图像分割框架</em>
     </p>
@@ -16,20 +14,61 @@
 
 ## 📌 简介
 
-MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解决方案。框架支持多种分割模型，包括 DETR、UNet并提供完整的训练和评估流程。
+MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解决方案。框架支持多种分割模型。
 
-## ✨ 特性
 
-- 🎯 支持多种分割模型：
-  - DETR（End-to-End Object Detection）
-  - UNet（经典U型网络）
-  - CNN（轻量级卷积网络）
+### 🎯 分割任务以及参考训练脚本
+
+<table width="100%">
+<tr>
+<td align="center" width="25%">
+<b>Semantic<br/>Segmentation</b><br/>
+</td>
+<td align="center" width="25%">
+<b>Panoptic<br/>Segmentation</b><br/>
+🚧 开发中
+</td>
+<td align="center" width="25%">
+<b>Instance<br/>Segmentation</b><br/>
+🚧 开发中
+</td>
+<td align="center" width="25%">
+<b>3D<br/>Segmentation</b><br/>
+🚧 开发中
+</td>
+</tr>
+<tr>
+<td align="center" width="25%">
+<ul style="text-align: left;">
+<li><a href="docs/Semantic_Segmentation/detr.md">DETR</a></li>
+<li>UNet</li>
+</ul>
+</td>
+<td align="center" width="25%">
+<ul style="text-align: left;">
+<li>开发中</li>
+</ul>
+</td>
+<td align="center" width="25%">
+<ul style="text-align: left;">
+<li>开发中</li>
+</ul>
+</td>
+<td align="center" width="25%">
+<ul style="text-align: left;">
+<li>开发中</li>
+</ul>
+</td>
+</tr>
+</table>
+
+
 
 ## 🛠️ 安装
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/MYSEGX.git
+git clone https://github.com/wcnnnn/MYSEGX.git
 cd MYSEGX
 
 # 安装依赖
@@ -42,30 +81,20 @@ pip install -e .
 ## 📚 使用指南
 
 ### 1. 准备数据
-将数据集组织为以下结构：
+
+本项目目前支持 [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/) 数据集。请确保您的数据集目录结构如下：
+
 ```
-data/VOC2012/
-        ├── JPEGImages/
-        ├── SegmentationClass/
-        └── ImageSets/
-            └── Segmentation/
-                ├── train.txt
-                └── val.txt
-```
-
-### 2. 配置模型
-在 `configs/models/` 目录下创建或修改配置文件。
-
-### 3. 训练模型
-```python
-from MYSEGX import train
-
-# 使用配置文件训练模型
-history = train('configs/models/detr/detr_r18.yaml')
+VOC2012/
+    ├── JPEGImages/
+    ├── SegmentationClass/
+    └── ImageSets/
+        └── Segmentation/
+            ├── train.txt
+            └── val.txt
 ```
 
-### 4. 评估和预测
-> 🚧 正在开发中
+更多详情请参阅 [数据集文档](docs/dataset.md)。
 
 ## 📊 性能对比
 > 🚧 正在测试中

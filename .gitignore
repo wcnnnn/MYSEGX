@@ -68,7 +68,7 @@ Thumbs.db
 # Config files with sensitive information
 
 # Documentation build
-docs/_build/
+_build/
 site/
 
 # Test coverage

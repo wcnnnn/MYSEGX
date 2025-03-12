@@ -5,6 +5,8 @@ import logging
 from tqdm import tqdm
 from pathlib import Path
 from ..utils.metrics import SegmentationMetrics
+import numpy as np
+import time
 
 # 配置日志
 logging.basicConfig(
@@ -59,7 +61,8 @@ class Trainer:
         
         self.logger = logging.getLogger(__name__)
         self.last_val_batch = None  # 用于存储最后一个验证批次的结果
-
+        self.rng = np.random.RandomState()  # 随机数生成器
+        
     def _prepare_batch(self, batch):
         """准备批次数据
         
@@ -214,25 +217,22 @@ class Trainer:
         metrics = self.train_metrics.compute()
         
         # 绘制训练指标图表
-        self.train_metrics.plot()
+        #self.train_metrics.plot()
         self.train_metrics.reset()
         
         return avg_loss, metrics
     
     def validate(self, dataloader):
-        """验证模型
-        
-        参数:
-            dataloader: 验证数据加载器
-            
-        返回:
-            avg_loss: 平均损失值
-            metrics: 评价指标字典
-        """
+        """验证模型"""
         self.model.eval()
         total_loss = 0
         
         try:
+            # 使用当前时间作为种子以确保每次都不同
+            self.rng.seed(int(time.time()))
+            # 随机选择一个批次用于可视化
+            vis_batch_idx = self.rng.randint(0, len(dataloader))
+            
             with torch.no_grad():
                 pbar = tqdm(dataloader, desc='Validating')
                 for batch_idx, batch in enumerate(pbar):
@@ -271,8 +271,8 @@ class Trainer:
                         # 计算指标
                         self.val_metrics.update(pred_masks, target_masks)
                         
-                        # 保存最后一个批次的结果用于可视化
-                        if batch_idx == len(dataloader) - 1:
+                        # 保存随机选择的批次结果用于可视化
+                        if batch_idx == vis_batch_idx:
                             self.last_val_batch = (
                                 images.detach(),  # 原始图像
                                 target_masks.detach(),  # 真实掩码
@@ -292,7 +292,7 @@ class Trainer:
         metrics = self.val_metrics.compute()
         
         # 绘制验证指标图表
-        self.val_metrics.plot()
+        #self.val_metrics.plot()
         self.val_metrics.reset()
         
         return avg_loss, metrics
