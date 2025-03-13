@@ -46,6 +46,7 @@
       <td>
         <ul>
         <li><a href="docs/Semantic_Segmentation/detr.md">DETR (ECCV'2020)</a></li>
+        <li><a href="docs/Semantic_Segmentation/unet.md">UNet (MICCAI'2015)</a></li>
         </ul>
       </td>
       <td>
