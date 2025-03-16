@@ -14,8 +14,10 @@ class SemanticMaskHead(nn.Module):
         in_channels (int): 输入特征通道数
         hidden_dim (int): 隐藏层维度
         num_classes (int): 类别数量
+        backbone_type (str): 主干网络类型
+        output_size (tuple): 输出尺寸，如果为None则保持输入尺寸
     """
-    def __init__(self, in_channels, hidden_dim, num_classes, backbone_type="resnet50"):
+    def __init__(self, in_channels, hidden_dim, num_classes, backbone_type="resnet50", output_size=None):
         super().__init__()
         
         # 根据backbone类型动态调整输入通道数和特征尺度
@@ -25,7 +27,6 @@ class SemanticMaskHead(nn.Module):
         elif backbone_type.lower() in ["resnet18", "resnet34"]:
             fpn_dims = [512, 256, 128, 64]  # ResNet18/34的特征维度
             self.target_size = None
-            #(200, 200)  # 固定输出大小为200x200
         elif backbone_type.lower() == "mobilenetv2":
             fpn_dims = [1280, 96, 32, 24]  # MobileNetV2的特征维度
             self.target_size = None
@@ -36,14 +37,19 @@ class SemanticMaskHead(nn.Module):
             fpn_dims = [in_channels, in_channels//2, in_channels//4, in_channels//8]
             self.target_size = None
         
-        print(f"[DEBUG] SemanticMaskHead初始化 - 主干网络: {backbone_type}")
-        print(f"[DEBUG] FPN维度: {fpn_dims}")
+        # 保存输出尺寸设置
+        self.output_size = output_size
         
-        # 添加输入特征投影层 - 使用实际的输入通道数
+        print(f"[DEBUG] SemanticMaskHead初始化:")
+        print(f"- 主干网络: {backbone_type}")
+        print(f"- FPN维度: {fpn_dims}")
+        print(f"- 目标输出尺寸: {output_size}")
+        
+        # 添加输入特征投影层
         self.input_proj = nn.Conv2d(fpn_dims[0], hidden_dim, 1)
         print(f"[DEBUG] 输入投影层配置: 输入通道={fpn_dims[0]}, 输出通道={hidden_dim}")
         
-        # FPN层 - 使用实际的输入通道数
+        # FPN层
         self.fpn_blocks = nn.ModuleList([
             FPNBlock(fpn_dims[1], hidden_dim),  # layer3 (1/16)
             FPNBlock(fpn_dims[2], hidden_dim),  # layer2 (1/8)
@@ -69,8 +75,7 @@ class SemanticMaskHead(nn.Module):
         
         # 掩码预测器
         self.predictor = nn.Sequential(
-            nn.Conv2d(hidden_dim, num_classes, 1),
-            nn.Tanh()  # 确保输出在[-1,1]范围内
+            nn.Conv2d(hidden_dim, num_classes, 1)
         )
     
     def forward(self, features):
@@ -84,13 +89,13 @@ class SemanticMaskHead(nn.Module):
                 - features[3]: layer4输出 (1/32或1/16)
         
         返回:
-            Tensor: 预测的分割掩码 (B, C, H, W)，始终是输入的1/4大小
+            Tensor: 预测的分割掩码 (B, C, H, W)
         """
         print(f"\n[DEBUG] SemanticMaskHead.forward - 特征列表长度: {len(features)}")
         for i, feat in enumerate(features):
             print(f"  特征[{i}]: shape={feat.shape}, 范围=[{feat.min():.3f}, {feat.max():.3f}]")
         
-        # 投影输入特征 - 从最深层开始处理
+        # 投影输入特征
         x = self.input_proj(features[-1])  # 处理最深层特征(layer4)
         
         # 自顶向下的特征融合
@@ -109,13 +114,13 @@ class SemanticMaskHead(nn.Module):
         masks = self.predictor(x)
         print(f"[DEBUG] 预测掩码: shape={masks.shape}, 范围=[{masks.min():.3f}, {masks.max():.3f}]")
         
-        # 调整输出大小
-        if self.target_size is not None:
-            masks = F.interpolate(masks, size=self.target_size, 
-                                mode='bilinear', align_corners=False)
-        
-        # 上采样到固定大小
-        masks = F.interpolate(masks, size=(512, 512), mode='bilinear', align_corners=False)
+        # 根据设置调整输出大小
+        if self.output_size is not None:
+            masks = F.interpolate(masks, size=self.output_size, mode='bilinear', align_corners=False)
+            print(f"[DEBUG] 调整到指定输出尺寸: {self.output_size}")
+        elif self.target_size is not None:
+            masks = F.interpolate(masks, size=self.target_size, mode='bilinear', align_corners=False)
+            print(f"[DEBUG] 调整到目标尺寸: {self.target_size}")
 
         print(f"[DEBUG] 最终掩码: shape={masks.shape}, 范围=[{masks.min():.3f}, {masks.max():.3f}]")
         

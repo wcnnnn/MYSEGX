@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from pycocotools import mask as coco_mask
+from MYSEGX.data.transforms import build_transforms
 
 class VOCInstanceSegmentation(Dataset):
     """VOC实例分割数据集
@@ -14,8 +15,8 @@ class VOCInstanceSegmentation(Dataset):
         root (str): 数据集根目录
         split (str): 数据集划分，可选'train'或'val'
         transform (callable, optional): 数据增强和预处理
-        model_type (str): 模型类型，支持 'detr'、'unet'、'saunet' 和 'cnn'
-        task_type (str): 任务类型，支持 'semantic' 或 'instance'
+        model_type (str): 模型类型，支持 'detr'、'unet'、'saunet'、'cnn' 和 'mask_rcnn'
+        task_type (str): 任务类型，支持 'instance'
     """
     # VOC数据集类别映射
     VOC_CLASSES = {
@@ -93,15 +94,21 @@ class VOCInstanceSegmentation(Dataset):
         
         # 数据预处理
         if self.transform:
-            transformed = self.transform(image=img)
+            transformed = self.transform(image=img, mask=instance_mask)
             img = transformed['image']
+            instance_mask = transformed['mask']
             
-            # 调整掩码大小
-            h, w = instance_mask.shape
-            instance_mask = cv2.resize(instance_mask, (img.shape[-1], img.shape[-2]),
-                                     interpolation=cv2.INTER_NEAREST)
+        # 确保图像是 [C, H, W] 格式
+        if isinstance(img, np.ndarray):
+            img = torch.from_numpy(img.transpose(2, 0, 1))
+        elif isinstance(img, torch.Tensor):
+            if img.dim() == 3 and img.shape[0] != 3:  # 如果通道维不在前面
+                img = img.permute(2, 0, 1)
         
         # 处理实例掩码和标签
+        if isinstance(instance_mask, torch.Tensor):
+            instance_mask = instance_mask.numpy()
+            
         unique_ids = np.unique(instance_mask)
         unique_ids = unique_ids[unique_ids != 0]  # 移除背景
         
@@ -127,7 +134,7 @@ class VOCInstanceSegmentation(Dataset):
         
         # 如果没有实例，添加空张量
         if len(masks) == 0:
-            masks = torch.zeros((0, img.shape[-2], img.shape[-1]), dtype=torch.uint8)
+            masks = torch.zeros((0, img.shape[1], img.shape[2]), dtype=torch.uint8)
             labels = torch.zeros((0,), dtype=torch.int64)
             boxes = torch.zeros((0, 4), dtype=torch.float32)
         else:
@@ -136,7 +143,7 @@ class VOCInstanceSegmentation(Dataset):
             boxes = torch.stack(boxes)
         
         # 根据模型类型准备目标
-        if self.model_type == 'detr':
+        if self.model_type in ['detr', 'mask_rcnn']:
             target_dict = {
                 'masks': masks,  # 实例掩码
                 'labels': labels,  # 类别标签
@@ -144,19 +151,19 @@ class VOCInstanceSegmentation(Dataset):
                 'image_id': img_id
             }
             return {
-                'image': img,
+                'image': img,  # 确保是 [C, H, W] 格式
                 'target': target_dict
             }
-        elif self.model_type in ['unet', 'saunet', 'cnn']:  # 添加对SAUNet的支持
+        elif self.model_type in ['unet', 'saunet', 'cnn']:
             # 对于其他模型，返回合并的实例掩码
-            combined_mask = torch.zeros((img.shape[-2], img.shape[-1]), dtype=torch.long)
+            combined_mask = torch.zeros((img.shape[1], img.shape[2]), dtype=torch.long)
             for i, (mask, label) in enumerate(zip(masks, labels)):
                 # 确保标签在正确的范围内 [0, num_classes-1]
                 label = torch.clamp(label, 0, self.num_classes - 1)
                 combined_mask[mask > 0] = label + 1  # +1 因为0是背景
             
             return {
-                'image': img,
+                'image': img,  # 确保是 [C, H, W] 格式
                 'target': combined_mask,
                 'image_id': img_id
             }
@@ -178,45 +185,48 @@ def collate_fn(batch):
     targets = []
     
     for b in batch:
-        images.append(b['image'])
+        # 确保图像是 [C, H, W] 格式
+        img = b['image']
+        if img.dim() == 3 and img.shape[0] != 3:  # 如果通道维不在前面
+            img = img.permute(2, 0, 1)
+        images.append(img)
         targets.append(b['target'])
     
-    # 堆叠图像
-    images = torch.stack(images)
+    # 堆叠图像并确保维度正确
+    images = torch.stack(images)  # [B, C, H, W]
     
-    # 如果目标是字典（DETR模型），不进行堆叠
+    # 如果目标是字典（DETR或Mask R-CNN模型），不进行堆叠
     if isinstance(targets[0], dict):
+        # 确保所有张量都在同一个设备上
+        processed_targets = []
+        for target in targets:
+            processed_target = {}
+            for k, v in target.items():
+                if isinstance(v, torch.Tensor):
+                    processed_target[k] = v.contiguous()  # 确保内存连续
+                else:
+                    processed_target[k] = v
+            processed_targets.append(processed_target)
+        
         return {
-            'image': images,
-            'target': targets
+            'image': images.contiguous(),  # 确保内存连续
+            'target': processed_targets
         }
     
     # 其他模型（UNet、SAUNet、CNN），堆叠目标掩码
     targets = torch.stack(targets)
     return {
-        'image': images,
-        'target': targets
+        'image': images.contiguous(),  # 确保内存连续
+        'target': targets.contiguous()  # 确保内存连续
     }
 
-def dataloader(root, split='train', batch_size=16, num_workers=4, transform=None, model_type='detr', task_type='instance', return_dataset=False):
-    """创建VOC数据集加载器
-    
-    参数:
-        root (str): 数据集根目录
-        split (str): 数据集划分，可选'train'或'val'
-        batch_size (int): 批次大小
-        num_workers (int): 数据加载进程数
-        transform (callable, optional): 数据增强和预处理
-        model_type (str): 模型类型，支持 'detr'、'unet'、'saunet' 和 'cnn'
-        task_type (str): 任务类型，支持 'semantic' 或 'instance'
-        return_dataset (bool): 是否返回数据集对象而不是数据加载器
-    """
-    # 确保使用正确的任务类型
+def dataloader(root, split='train', batch_size=16, num_workers=4, transform_config=None, model_type='detr', task_type='instance', return_dataset=False):
+    """创建VOC数据集加载器"""
     assert task_type == 'instance', "此数据加载器仅支持实例分割任务"
+    assert model_type in ['detr', 'unet', 'saunet', 'cnn', 'mask_rcnn'], f"不支持的模型类型: {model_type}"
     
-    # 确保模型类型受支持
-    model_type = model_type.lower()  # 转换为小写以确保一致性
-    assert model_type in ['detr', 'unet', 'saunet', 'cnn'], f"不支持的模型类型: {model_type}"
+    # 构建数据增强
+    transform = build_transforms(transform_config, train=(split=='train'))
     
     dataset = VOCInstanceSegmentation(
         root=root,

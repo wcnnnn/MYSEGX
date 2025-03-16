@@ -1,0 +1,85 @@
+# YOLACT模型配置文件
+
+# 任务和模型类型
+task:
+  type: instance  # 任务类型：instance
+  model_type: yolact  # 模型类型：yolact
+
+# 模型架构参数
+model:
+  name: yolact
+  backbone_type: resnet18  # 主干网络类型
+  num_classes: 8  # Cityscapes实例分割类别数
+  hidden_dim: 256  # 特征维度
+  num_protos: 32  # prototype masks的数量
+  use_gn: true  # 是否使用GroupNorm
+  top_k: 100  # NMS保留的最大检测数
+  score_threshold: 0.05  # 分数阈值
+  nms_threshold: 0.5  # NMS的IoU阈值
+
+# 训练超参数
+train:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_drop: 40
+  clip_max_norm: 0.1
+
+# 优化器设置
+optimizer:
+  type: AdamW
+  backbone_lr: 1.0e-5
+  backbone_weight_decay: 1.0e-4
+
+# 数据集配置
+dataset:
+  name: cityscapes
+  root: datasets/cityscapes
+  size: [512, 512]  # 输入尺寸配置
+  transform:
+    train:
+      random_resize:
+        min_size: 280
+        max_size: 400
+      random_rotation:
+        degrees: 10
+        expand: true
+      random_scale:
+        min_scale: 0.8
+        max_scale: 1.2
+      random_crop:
+        size: [512, 512]
+      horizontal_flip:
+        p: 0.5
+      color_jitter:
+        brightness: 0.2
+        contrast: 0.2
+        saturation: 0.2
+      resize:
+        size: [512, 512]
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      resize:
+        size: [512, 512]
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 损失函数权重
+loss:
+  cls: 1.0  # 分类损失权重
+  box: 1.5  # 边界框回归损失权重
+  mask: 6.125  # 掩码损失权重
+  proto: 1.0  # 原型掩码损失权重
+  semantic: 1.0  # 语义分割损失权重
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/instance/yolact  # 实例分割模型保存路径
+  save_freq: 5  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mAP  # 用于选择最佳模型的指标 

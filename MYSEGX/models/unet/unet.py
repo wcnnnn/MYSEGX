@@ -77,7 +77,8 @@ class Up(nn.Module):
         
         # 拼接特征图
         x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
+        x = self.conv(x)
+        return x
 
 class OutConv(nn.Module):
     """输出卷积层
@@ -91,9 +92,12 @@ class OutConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.norm = nn.BatchNorm2d(out_channels)
         
     def forward(self, x):
-        return self.conv(x)
+        x = self.conv(x)
+        x = self.norm(x)
+        return x
 
 class UNet(nn.Module):
     """UNet模型
@@ -102,13 +106,15 @@ class UNet(nn.Module):
         n_channels: 输入通道数
         n_classes: 类别数
         bilinear: 是否使用双线性插值上采样
+        use_softmax: 是否在输出时使用softmax
     """
-    def __init__(self, n_channels=3, n_classes=2, bilinear=True):
+    def __init__(self, n_channels=3, n_classes=2, bilinear=True, use_softmax=False):
         super().__init__()
         
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
+        self.use_softmax = use_softmax
         
         # 初始双卷积
         self.inc = DoubleConv(n_channels, 64)
@@ -130,20 +136,52 @@ class UNet(nn.Module):
         self.outc = OutConv(64, n_classes)
         
     def forward(self, x):
+        # 输入信息调试
+        print(f"\n[DEBUG] 输入图像形状: {x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
+        
         # 编码器路径
         x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
+        print(f"\n[DEBUG] 初始特征提取:")
+        print(f"初始双卷积输出: shape={x1.shape}, 范围=[{x1.min():.3f}, {x1.max():.3f}]")
         
-        # 解码器路径（带跳跃连接）
+        # 下采样路径调试
+        print(f"\n[DEBUG] 下采样路径输出:")
+        x2 = self.down1(x1)
+        print(f"down1输出: shape={x2.shape}, 范围=[{x2.min():.3f}, {x2.max():.3f}]")
+        
+        x3 = self.down2(x2)
+        print(f"down2输出: shape={x3.shape}, 范围=[{x3.min():.3f}, {x3.max():.3f}]")
+        
+        x4 = self.down3(x3)
+        print(f"down3输出: shape={x4.shape}, 范围=[{x4.min():.3f}, {x4.max():.3f}]")
+        
+        x5 = self.down4(x4)
+        print(f"down4输出: shape={x5.shape}, 范围=[{x5.min():.3f}, {x5.max():.3f}]")
+        
+        # 上采样路径调试
+        print(f"\n[DEBUG] 上采样路径输出:")
         x = self.up1(x5, x4)
+        print(f"up1输出: shape={x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
+        
         x = self.up2(x, x3)
+        print(f"up2输出: shape={x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
+        
         x = self.up3(x, x2)
+        print(f"up3输出: shape={x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
+        
         x = self.up4(x, x1)
+        print(f"up4输出: shape={x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
         
         # 输出层
         logits = self.outc(x)
+        print(f"\n[DEBUG] 最终输出:")
+        print(f"logits: shape={logits.shape}, 范围=[{logits.min():.3f}, {logits.max():.3f}]")
         
+        if not self.training:
+            # 在推理模式下，返回softmax结果
+            outputs = torch.softmax(logits, dim=1)
+            print(f"softmax后: shape={outputs.shape}, 范围=[{outputs.min():.3f}, {outputs.max():.3f}]")
+            return outputs
+            
+        # 在训练模式下，直接返回logits
         return logits

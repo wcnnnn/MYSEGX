@@ -4,6 +4,15 @@ import numpy as np
 import cv2
 from typing import List, Dict, Union
 import torch
+import logging
+import matplotlib as mpl
+
+# 设置matplotlib的日志级别为WARNING，抑制DEBUG信息
+mpl.pyplot.set_loglevel('ERROR')  
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
+
+# 如果还有输出，可以更严格地抑制字体相关的警告
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 def generate_colors(num_classes: int) -> Dict[int, tuple]:
     """生成类别颜色映射
@@ -85,8 +94,8 @@ def generate_colors(num_classes: int) -> Dict[int, tuple]:
 
 def plot_segmentation(
     image: Union[np.ndarray, torch.Tensor],
-    target: Union[np.ndarray, torch.Tensor],
-    pred: Union[np.ndarray, torch.Tensor],
+    target: Union[np.ndarray, torch.Tensor, Dict],
+    pred: Union[np.ndarray, torch.Tensor, Dict],
     task_type: str = 'semantic',
     class_colors: Dict[int, tuple] = None,
     class_names: List[str] = None,
@@ -94,13 +103,97 @@ def plot_segmentation(
     save_path: str = None
 ) -> np.ndarray:
     """绘制分割结果"""
-    # 转换输入为numpy数组
+    # 确保图像是numpy数组
     if isinstance(image, torch.Tensor):
         image = image.detach().cpu().numpy()
-    if isinstance(target, torch.Tensor):
-        target = target.detach().cpu().numpy()
-    if isinstance(pred, torch.Tensor):
-        pred = pred.detach().cpu().numpy()
+    
+    # 如果图像是CHW格式，转换为HWC
+    if image.shape[0] == 3 and len(image.shape) == 3:
+        image = np.transpose(image, (1, 2, 0))
+    
+    # 归一化图像到[0,1]范围
+    if image.max() > 1.0:
+        image = image / 255.0
+    
+    # 确定类别数量并生成颜色映射
+    if class_colors is None:
+        if task_type == 'semantic':
+            # 对于语义分割，从target和pred中获取最大类别ID
+            if isinstance(target, dict):
+                max_class = max(target['semantic_mask'].max().item(), pred['pred_masks'].max().item())
+            else:
+                max_class = max(target.max().item() if isinstance(target, torch.Tensor) else target.max(),
+                              pred.max().item() if isinstance(pred, torch.Tensor) else pred.max())
+            num_classes = max_class + 1
+        else:  # instance
+            # 对于实例分割，从labels中获取最大类别ID
+            if isinstance(target, dict):
+                max_class = max(target['labels'].max().item(), pred['labels'].max().item())
+            else:
+                max_class = len(class_names) if class_names else 21  # 默认VOC数据集类别数
+            num_classes = max_class + 1
+        
+        # 生成颜色映射
+        class_colors = generate_colors(num_classes)
+        print(f"[DEBUG] 生成颜色映射，类别数: {num_classes}")
+    
+    # 根据任务类型处理掩码
+    if task_type == 'instance':
+        # 为实例分割创建彩色掩码
+        h, w = image.shape[:2]
+        target_mask = np.zeros((h, w, 3))
+        pred_mask = np.zeros((h, w, 3))
+        
+        # 处理实例分割结果
+        if isinstance(target, dict):
+            # 确保所有张量都在CPU上
+            target_masks = target['masks'].detach().cpu().numpy() if isinstance(target['masks'], torch.Tensor) else target['masks']
+            target_labels = target['labels'].detach().cpu().numpy() if isinstance(target['labels'], torch.Tensor) else target['labels']
+            
+            print(f"[DEBUG] 目标掩码: shape={target_masks.shape}, labels={target_labels}")
+            for inst_id, (mask, label) in enumerate(zip(target_masks, target_labels)):
+                color = class_colors[int(label)]
+                for c in range(3):
+                    target_mask[:, :, c][mask > 0.5] = color[c] / 255.0
+        
+        if isinstance(pred, dict):
+            # 确保所有张量都在CPU上
+            pred_masks = pred['masks'].detach().cpu().numpy() if isinstance(pred['masks'], torch.Tensor) else pred['masks']
+            pred_labels = pred['labels'].detach().cpu().numpy() if isinstance(pred['labels'], torch.Tensor) else pred['labels']
+            
+            print(f"[DEBUG] 预测掩码: shape={pred_masks.shape}, labels={pred_labels}")
+            for inst_id, (mask, label) in enumerate(zip(pred_masks, pred_labels)):
+                color = class_colors[int(label)]
+                for c in range(3):
+                    pred_mask[:, :, c][mask > 0.5] = color[c] / 255.0
+    else:  # semantic
+        # 确保张量在CPU上
+        if isinstance(target, torch.Tensor):
+            target = target.detach().cpu()
+        if isinstance(pred, torch.Tensor):
+            pred = pred.detach().cpu()
+            
+        # 创建颜色掩码
+        target_mask = np.zeros((*target.shape, 3))
+        pred_mask = np.zeros((*pred.shape, 3))
+        
+        # 为每个类别上色
+        unique_targets = np.unique(target.numpy())
+        unique_preds = np.unique(pred.numpy())
+        print(f"[DEBUG] 语义分割 - 目标类别: {unique_targets}, 预测类别: {unique_preds}")
+        
+        for label in range(len(class_colors)):
+            if label == 0:  # 跳过背景
+                continue
+            color = class_colors[label]
+            
+            # 为真实标签中的类别上色
+            mask = target == label
+            target_mask[mask] = [c/255.0 for c in color]
+            
+            # 为预测结果中的类别上色
+            mask = pred == label
+            pred_mask[mask] = [c/255.0 for c in color]
     
     # 确保图像格式正确 (H, W, C)
     if image.shape[0] == 3:  # 如果是(C, H, W)格式
@@ -109,53 +202,31 @@ def plot_segmentation(
     # 归一化图像到[0, 1]范围
     image = (image - image.min()) / (image.max() - image.min() + 1e-8)
     
-    # 创建颜色映射
-    num_classes = max(len(class_names) if class_names else 21,  # 使用类别名称列表长度或默认21
-                     max(np.max(target), np.max(pred)) + 1)  # 或使用实际出现的最大类别ID + 1
-    if class_colors is None:
-        class_colors = generate_colors(num_classes)
+    # 创建图例
+    legend_patches = []
+    legend_labels = []
     
-    # 创建彩色掩码
-    target_mask = np.zeros((*target.shape, 3))
-    pred_mask = np.zeros((*pred.shape, 3))
+    # 获取活跃的类别（在target或pred中出现的类别）
+    if task_type == 'instance':
+        active_classes = sorted(set(
+            target['labels'].detach().cpu().numpy().tolist() +
+            pred['labels'].detach().cpu().numpy().tolist()
+        ))
+    else:
+        active_classes = sorted(set(np.unique(target).tolist() + np.unique(pred).tolist()))
+    active_classes = [c for c in active_classes if c != 0]  # 移除背景类
     
-    # 为每个类别上色
-    unique_targets = np.unique(target)
-    unique_preds = np.unique(pred)
-    
-    print(f"[DEBUG] Target unique values: {unique_targets}")
-    print(f"[DEBUG] Pred unique values: {unique_preds}")
-    print(f"[DEBUG] Number of classes: {num_classes}")
-    
-    # 创建所有类别的图例
-    target_patches = []
-    pred_patches = []
-    
-    # 为所有可能的类别创建图例（不仅仅是出现的类别）
-    for label in range(num_classes):
-        if label == 0:  # 跳过背景
-            continue
-        color = class_colors.get(int(label), (128, 128, 128))  # 默认灰色
-        
-        # 为真实标签中的类别上色
-        mask = target == label
-        target_mask[mask] = [c/255.0 for c in color]  # 归一化颜色值
-        
-        # 为预测结果中的类别上色
-        mask = pred == label
-        pred_mask[mask] = [c/255.0 for c in color]  # 归一化颜色值
-        
-        # 添加到图例
-        if class_names and int(label) < len(class_names):
+    # 为每个活跃的类别创建图例项
+    for label in active_classes:
+        if label < len(class_colors):
+            color = class_colors[label]
+            class_name = class_names[label] if class_names and label < len(class_names) else f'Class {label}'
             patch = plt.Rectangle((0, 0), 1, 1, fc=[c/255.0 for c in color])
-            class_name = class_names[int(label)]
-            target_patches.append((patch, f"{class_name} ({label})"))
-            pred_patches.append((patch, f"{class_name} ({label})"))
+            legend_patches.append(patch)
+            legend_labels.append(f"{class_name} ({label})")
     
-    # 创建主图和图例的布局
-    fig = plt.figure(figsize=(20, 10))  # 增加图像大小
-    
-    # 创建网格布局
+    # 创建图像布局
+    fig = plt.figure(figsize=(20, 10))
     gs = plt.GridSpec(1, 5, width_ratios=[1, 1, 1, 1, 0.5])
     
     # 显示原始图像
@@ -185,103 +256,29 @@ def plot_segmentation(
     ax4.set_title('Overlay Result', pad=10)
     ax4.axis('off')
     
-    # 创建单独的图例区域
+    # 创建图例
     ax5 = plt.subplot(gs[4])
     ax5.axis('off')
-    
-    # 获取图像中实际出现的类别
-    active_classes = sorted(set(unique_targets.tolist() + unique_preds.tolist()))
-    active_classes = [c for c in active_classes if c != 0]  # 移除背景类
-    
-    # 创建图例
-    legend_patches = []
-    legend_labels = []
-    
-    # 添加图例标题
-    ax5.text(0, 1.1, 'Classes Legend', fontsize=12, fontweight='bold')
-    
-    # 为每个活跃的类别创建图例项
-    for label in active_classes:
-        if label < num_classes and class_names and int(label) < len(class_names):
-            color = class_colors.get(int(label), (128, 128, 128))
-            patch = plt.Rectangle((0, 0), 1, 1, fc=[c/255.0 for c in color])
-            class_name = class_names[int(label)]
-            legend_patches.append(patch)
-            legend_labels.append(f"{class_name} ({label})")
-    
-    # 添加图例，设置合适的字体大小和列数
     if legend_patches:
         ax5.legend(legend_patches, legend_labels,
                   loc='center left',
                   bbox_to_anchor=(0, 0.5),
                   fontsize=10,
                   ncol=1)
+    ax5.set_title('Classes Legend', pad=10)
     
     plt.tight_layout()
     
     # 为TensorBoard准备图像
     fig.canvas.draw()
-    
-    # 获取图像数据
     buf = fig.canvas.buffer_rgba()
-    # 转换为numpy数组
     X = np.asarray(buf)
-    # 转换RGBA为RGB
-    X = X[:, :, :3]
+    X = X[:, :, :3]  # 转换RGBA为RGB
     plt.close()
     
     # 转换为CHW格式用于TensorBoard
     X = np.transpose(X, (2, 0, 1))
     return X.astype(np.uint8)
-
-def plot_training_curves(losses: Dict[str, List[float]], 
-                        metrics: Dict[str, List[float]], 
-                        save_path: str = None):
-    """绘制训练曲线
-    
-    参数:
-        losses: 损失值字典，格式为 {'loss_name': [values...]}
-        metrics: 评估指标字典，格式为 {'metric_name': [values...]}
-        save_path: 保存路径，如果为None则显示图像
-    """
-    plt.figure(figsize=(15, 5))
-    
-    # 绘制损失曲线
-    plt.subplot(121)
-    for loss_name, loss_values in losses.items():
-        # 确保转换为CPU tensor并转为numpy数组
-        if isinstance(loss_values, torch.Tensor):
-            loss_values = loss_values.cpu().numpy()
-        elif isinstance(loss_values, list):
-            loss_values = [v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in loss_values]
-        plt.plot(loss_values, label=loss_name)
-    plt.title('Training Losses')
-    plt.xlabel('Iteration')
-    plt.ylabel('Loss Value')
-    plt.legend()
-    plt.grid(True)
-    
-    # 绘制指标曲线
-    plt.subplot(122)
-    for metric_name, metric_values in metrics.items():
-        # 确保转换为CPU tensor并转为numpy数组
-        if isinstance(metric_values, torch.Tensor):
-            metric_values = metric_values.cpu().numpy()
-        elif isinstance(metric_values, list):
-            metric_values = [v.cpu().numpy() if isinstance(v, torch.Tensor) else v for v in metric_values]
-        plt.plot(metric_values, label=metric_name)
-    plt.title('Training Metrics')
-    plt.xlabel('Iteration')
-    plt.ylabel('Metric Value')
-    plt.legend()
-    plt.grid(True)
-    
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path)
-        plt.close()
-    else:
-        plt.show()
 
 def plot_comparison(images: List[np.ndarray], 
                    titles: List[str], 

@@ -1,0 +1,84 @@
+# DeepLabV3模型配置文件
+
+# 任务和模型类型
+task:
+  type: semantic  # 任务类型：semantic
+  model_type: deeplabv3plus  # 模型类型：deeplabv3
+
+# 模型架构参数
+model:
+  name: deeplabv3plus
+  backbone: resnet18  # 主干网络类型，可选：resnet18, resnet34, resnet50, resnet101, vgg16, vgg19, mobilenetv2, mobilenetv3_small, mobilenetv3_large
+  num_classes: 21  # VOC数据集类别数（包括背景）
+  output_stride: 16  # 输出步长，可选：8, 16
+  pretrained_backbone: true  # 是否使用预训练的骨干网络
+  output_size: [1024, 2048]  # 输出尺寸，设置为null则保持输入尺寸
+
+# 训练超参数
+train:
+  epochs: 50
+  batch_size: 8  # 由于ResNet18较小，可以使用更大的批次大小
+  num_workers: 4
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_drop: 20  # 学习率衰减轮次
+  clip_max_norm: 0.1  # 梯度裁剪阈值
+
+# 优化器设置
+optimizer:
+  type: AdamW
+  backbone_lr: 1.0e-5  # 主干网络学习率
+  backbone_weight_decay: 1.0e-4
+
+# 数据集配置
+dataset:
+  name: voc
+  root: datasets/VOC2012
+  size: [1024, 2048]  # 添加输入尺寸配置
+  transform:
+    train:
+      random_resize:
+        min_size: 280
+        max_size: 400
+      random_rotation:
+        degrees: 10
+        expand: true
+      random_scale:
+        min_scale: 0.8
+        max_scale: 1.2
+      random_crop:
+        size: [640, 640]
+      horizontal_flip:
+        p: 0.5
+      color_jitter:
+        brightness: 0.2
+        contrast: 0.2
+        saturation: 0.2
+      resize:
+        size: [1024, 2048]
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      resize:
+        size: [1024, 2048]
+      normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+
+# 损失函数配置
+loss:
+  ignore_index: 255  # 忽略的类别索引
+
+# 评估指标
+metrics:
+  - name: mIoU  # 平均交并比
+  - name: Accuracy  # 准确率
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/deeplabv3
+  save_freq: 5  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mIoU  # 用于选择最佳模型的指标 

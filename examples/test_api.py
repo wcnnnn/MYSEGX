@@ -6,14 +6,20 @@ from MYSEGX import train
 def test_semantic_segmentation():
     """测试语义分割训练"""
     print("\n=== 测试语义分割训练 ===")
+    
+    # 获取数据集路径
+    dataset_root = os.path.abspath(os.path.join('datasets', 'Cityspaces'))
+    print(f"使用数据集路径: {dataset_root}")
+    
     history = train(
-        config_path='configs/Semantic_Segmentation/detr/detr_r18.yaml',
+        config_path='configs/Semantic_Segmentation/deeplabv3/deeplabv3_r18.yaml',
         task_type='semantic',
-        dataset='voc',
-        dataset_root='datasets/VOC2012',  # 请替换为实际的VOC数据集路径
-        model_name='detr',
-        batch_size=8,  # 小批次用于测试
-        num_workers=8  # 禁用多进程加载用于测试
+        dataset='cityscapes',
+        dataset_root=dataset_root,  
+        model_name='deeplabv3',
+        num_classes=19, 
+        batch_size=4,
+        num_workers=8
     )
     assert isinstance(history, dict)
     assert 'train_loss' in history
@@ -22,32 +28,35 @@ def test_semantic_segmentation():
 def test_instance_segmentation():
     """测试实例分割训练"""
     print("\n=== 测试实例分割训练 ===")
+    
+    # 获取数据集路径
+    dataset_root = os.path.abspath(os.path.join('datasets', 'VOC2012'))
+    print(f"使用数据集路径: {dataset_root}")
+
     history = train(
-        config_path='configs/Semantic_Segmentation/detr/detr_r18.yaml',
+        config_path='configs/Instance_Segmentation/yolact/yolact_r18.yaml',
         task_type='instance',
-        dataset='voc',
-        dataset_root='datasets/VOC2012',  # 请替换为实际的VOC数据集路径
-        model_name='detr',
-        batch_size=16,  # 小批次用于测试
-        num_workers=8  # 禁用多进程加载用于测试
+        dataset='cityscapes',
+        dataset_root=dataset_root,
+        model_name='yolact',
+        num_classes=8, 
+        batch_size=4,
+        num_workers=8
     )
     assert isinstance(history, dict)
     assert 'train_loss' in history
     print("实例分割训练测试通过！")
 
-
-
 if __name__ == '__main__':
     # 设置数据集路径
-    voc_root = os.getenv('VOC_ROOT', 'datasets/VOC2012')  # 从环境变量获取或使用默认值
+    voc_root = os.path.abspath(os.path.join('datasets', 'VOC2012'))
     if not os.path.exists(voc_root):
         print(f"警告: VOC数据集路径 {voc_root} 不存在")
-        print("请设置正确的VOC_ROOT环境变量或直接修改脚本中的路径")
+        print("请确保数据集位于 datasets/VOC2012 目录下")
         exit(1)
         
     # 运行所有测试
     try:
-        test_semantic_segmentation()
         test_instance_segmentation()
         print("\n所有测试完成！")
     except Exception as e:

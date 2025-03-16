@@ -8,7 +8,7 @@ from scipy.optimize import linear_sum_assignment
 class HungarianAssigner(nn.Module):
     """匈牙利匹配分配器
     
-    使用匈牙利算法进行最优二分图匹配，用于目标检测和分割任务中的标签分配。
+    使用匈牙利算法进行最优二分图匹配，用于实例分割任务中的标签分配。
     
     参数:
         match_cost_class (float): 类别代价权重
@@ -22,71 +22,76 @@ class HungarianAssigner(nn.Module):
         self.match_cost_dice = match_cost_dice
         
     @torch.no_grad()
-    def forward(self, pred_logits, pred_masks, gt_labels, gt_masks):
+    def forward(self, outputs, targets):
         """前向传播
         
         参数:
-            pred_logits (Tensor): 预测的类别logits, shape (B, N, C)
-            pred_masks (Tensor): 预测的分割掩码, shape (B, N, H, W)
-            gt_labels (List[Tensor]): 真实标签列表
-            gt_masks (List[Tensor]): 真实掩码列表
+            outputs (dict): 模型输出字典
+                - pred_logits: 预测的类别logits (B, N, C)
+                - pred_masks: 预测的分割掩码 (B, N, H, W)
+            targets (list[dict]): 目标字典列表
+                - masks: 实例掩码 (M, H, W)
+                - labels: 类别标签 (M,)
             
         返回:
             indices (List[Tuple[Tensor, Tensor]]): 每个图像的匹配索引对
         """
+        pred_logits = outputs['pred_logits']
+        pred_masks = outputs['pred_masks']
+        
+        B = len(targets)
         indices = []
         
         # 对每个图像进行匹配
-        for i, (p_logits, p_masks, t_labels, t_masks) in enumerate(
-            zip(pred_logits, pred_masks, gt_labels, gt_masks)):
+        for b in range(B):
+            # 获取当前图像的预测和目标
+            cur_pred_logits = pred_logits[b]  # (N, C)
+            cur_pred_masks = pred_masks[b]     # (N, H, W)
+            cur_targets = targets[b]
             
-            # 打印输入张量的形状
-            #print(f"\nBatch {i}:")
-            #print(f"pred_logits shape: {p_logits.shape}")
-            #print(f"pred_masks shape: {p_masks.shape}")
-            #print(f"gt_labels shape: {t_labels.shape}")
-            #print(f"gt_masks shape: {t_masks.shape}")
+            if len(cur_targets['labels']) == 0:
+                # 如果没有目标实例，返回空匹配
+                indices.append((
+                    torch.tensor([], dtype=torch.int64),
+                    torch.tensor([], dtype=torch.int64)
+                ))
+                continue
+            
+            # 获取目标掩码和标签
+            gt_masks = cur_targets['masks']    # (M, H, W)
+            gt_labels = cur_targets['labels']  # (M,)
             
             # 将预测掩码上采样到与真实掩码相同的大小
-            if p_masks.shape[-2:] != t_masks.shape[-2:]:
-                p_masks = F.interpolate(
-                    p_masks.unsqueeze(0),  # 添加批次维度
-                    size=t_masks.shape[-2:],
+            if cur_pred_masks.shape[-2:] != gt_masks.shape[-2:]:
+                cur_pred_masks = F.interpolate(
+                    cur_pred_masks.unsqueeze(0),
+                    size=gt_masks.shape[-2:],
                     mode='bilinear',
                     align_corners=False
-                ).squeeze(0)  # 移除批次维度
-                #print(f"Upsampled pred_masks shape: {p_masks.shape}")
-            
-            # 确保掩码维度正确
-            if len(p_masks.shape) == 2:  # (N, H*W)
-                H, W = t_masks.shape[1:]
-                p_masks = p_masks.view(p_masks.shape[0], H, W)  # (N, H, W)
-                #print(f"Reshaped pred_masks to: {p_masks.shape}")
+                ).squeeze(0)
             
             # 计算类别代价矩阵
-            cost_class = -p_logits[:, t_labels]
-            #print(f"cost_class shape: {cost_class.shape}")
+            cost_class = -cur_pred_logits[:, gt_labels]  # (N, M)
             
             # 计算掩码代价矩阵
-            cost_mask = self.compute_mask_cost(p_masks, t_masks)
-            #print(f"cost_mask shape: {cost_mask.shape}")
+            cost_mask = self.compute_mask_cost(cur_pred_masks, gt_masks)  # (N, M)
             
             # 计算Dice代价矩阵
-            cost_dice = self.compute_dice_cost(p_masks, t_masks)
-            #print(f"cost_dice shape: {cost_dice.shape}")
+            cost_dice = self.compute_dice_cost(cur_pred_masks, gt_masks)  # (N, M)
             
             # 组合代价矩阵
             C = (self.match_cost_class * cost_class + 
                  self.match_cost_mask * cost_mask +
                  self.match_cost_dice * cost_dice)
-            #print(f"Combined cost matrix shape: {C.shape}")
             
             # 使用匈牙利算法进行匹配
             C = C.cpu()
             pred_ids, gt_ids = linear_sum_assignment(C)
-            indices.append((torch.as_tensor(pred_ids, dtype=torch.int64),
-                          torch.as_tensor(gt_ids, dtype=torch.int64)))
-            
+            indices.append((
+                torch.as_tensor(pred_ids, dtype=torch.int64),
+                torch.as_tensor(gt_ids, dtype=torch.int64)
+            ))
+        
         return indices
     
     def compute_mask_cost(self, pred_masks, target_masks):

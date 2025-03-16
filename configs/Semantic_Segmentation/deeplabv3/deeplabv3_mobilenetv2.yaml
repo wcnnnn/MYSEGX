@@ -1,0 +1,74 @@
+# DeepLabV3 MobileNetV2模型配置文件
+
+# 任务和模型类型
+task:
+  type: semantic  # 任务类型：semantic
+  model_type: deeplabv3  # 模型类型：deeplabv3
+
+# 模型架构参数
+model:
+  name: deeplabv3
+  backbone: mobilenetv2  # 主干网络类型：mobilenetv2，适合移动设备部署
+  num_classes: 21  # VOC数据集类别数（包括背景）
+  output_stride: 16  # 输出步长，可选：8, 16
+  pretrained_backbone: true  # 是否使用预训练的骨干网络
+
+# 训练超参数
+train:
+  epochs: 50  # 由于模型较小，可以训练更多轮次
+  batch_size: 16  # 由于MobileNetV2较小，可以使用更大的批次大小
+  num_workers: 4
+  learning_rate: 5.0e-4  # 对于轻量级模型，可以使用稍大的学习率
+  weight_decay: 4.0e-5  # 轻量级模型通常使用较小的权重衰减
+  lr_drop: 30  # 学习率衰减轮次
+  clip_max_norm: 0.1  # 梯度裁剪阈值
+
+# 优化器设置
+optimizer:
+  type: AdamW
+  backbone_lr: 5.0e-5  # 主干网络学习率
+  backbone_weight_decay: 4.0e-5
+
+# 数据集配置
+dataset:
+  name: voc
+  root: VOC2012
+  year: 2012
+  image_set: train
+  size: [512, 512]  # 使用较小的图像尺寸，适合移动设备
+  transform:
+    train:
+      - name: RandomResize
+        min_size: 200
+        max_size: 300
+      - name: RandomHorizontalFlip
+        prob: 0.5
+      - name: RandomCrop
+        size: [400, 400]
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+    val:
+      - name: Resize
+        size: 600
+      - name: ToTensor
+      - name: Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 损失函数配置
+loss:
+  ignore_index: 255  # 忽略的类别索引
+
+# 评估指标
+metrics:
+  - name: mIoU  # 平均交并比
+  - name: Accuracy  # 准确率
+
+# 保存设置
+save:
+  checkpoint_dir: checkpoints/deeplabv3_mobilenetv2
+  save_freq: 5  # 每隔多少轮保存一次
+  save_best: true  # 是否保存最佳模型
+  metric: mIoU  # 用于选择最佳模型的指标 

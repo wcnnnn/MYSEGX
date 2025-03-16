@@ -1,7 +1,7 @@
 <div align="center">
     <img src="LOGO.jpg" alt="MYSEGX Logo" width="600"/>
     <p>
-        <em>🚀 简单、高效、易用的图像分割框架</em>
+        <em>🚀 A simple, efficient, and easy-to-use image segmentation framework</em>
     </p>
     <p>
         <a href="LICENSE">
@@ -10,79 +10,85 @@
         <img alt="Python" src="https://img.shields.io/badge/python-3.7%2B-blue"/>
         <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-1.7%2B-orange"/>
     </p>
+    <p>
+        <a href="README_zh_CN.md">中文</a> | <strong>English</strong>
+    </p>
 </div>
 
-## 📌 简介
+## 📌 Introduction
 
-MYSEGX 是一个图像分割框架，专注于提供高效、易用的分割解决方案。框架支持多种分割模型。
+<div align="center">
+    MYSEGX is an image segmentation framework focused on providing efficient and user-friendly segmentation solutions. The framework supports various segmentation models.
+</div>
 
+### 🎯 Segmentation Tasks and Reference Training Scripts
 
-### 🎯 分割任务以及参考训练脚本
-
-<table width="100%">
-<tr>
-<td align="center" width="25%">
-<b>Semantic<br/>Segmentation</b><br/>
-</td>
-<td align="center" width="25%">
-<b>Panoptic<br/>Segmentation</b><br/>
-🚧 开发中
-</td>
-<td align="center" width="25%">
-<b>Instance<br/>Segmentation</b><br/>
-🚧 开发中
-</td>
-<td align="center" width="25%">
-<b>3D<br/>Segmentation</b><br/>
-🚧 开发中
-</td>
-</tr>
-<tr>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li><a href="docs/Semantic_Segmentation/detr.md">DETR</a></li>
-<li>UNet</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-<td align="center" width="25%">
-<ul style="text-align: left;">
-<li>开发中</li>
-</ul>
-</td>
-</tr>
+<div align="center">
+  <b>Overview</b>
+</div>
+<table align="center">
+  <tbody>
+    <tr align="center" valign="center">
+      <td>
+        <b>Semantic Segmentation</b>
+      </td>
+      <td>
+        <b>Instance Segmentation</b>
+      </td>
+      <td>
+        <b>Panoptic Segmentation</b>
+      </td>
+      <td>
+        <b>3D Segmentation</b>
+      </td>
+    </tr>
+    <tr valign="top">
+      <td>
+        <ul>
+        <li><a href="docs/Semantic_Segmentation/detr.md">DETR (ECCV'2020)</a></li>
+        <li><a href="docs/Semantic_Segmentation/unet.md">UNet (MICCAI'2015)</a></li>
+        <li><a href="docs/Semantic_Segmentation/deeplabv3.md">DeepLabV3 (ArXiv'2017)</a></li>
+        <li><a href="docs/Semantic_Segmentation/deeplabv3plus.md">DeepLabV3+ (ECCV'2018)</a></li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li><a href="docs/Instance_Segmentation/detr.md">DETR (ECCV'2020)</a></li>
+          <li><a href="docs/Instance_Segmentation/yolact.md">YOLACT (ICCV'2019)</a></li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+          <li>In development</li>
+        </ul>
+      </td>
+      <td>
+        <ul>
+        <li>In development</li>
+        </ul>
+      </td>
+  </tbody>
 </table>
 
-
-
-## 🛠️ 安装
+## 🛠️ Installation
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/wcnnnn/MYSEGX.git
 cd MYSEGX
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 
-# 安装 MYSEGX
+# Install MYSEGX
 pip install -e .
 ```
 
-## 📚 使用指南
+## 📚 User Guide
 
-### 1. 准备数据
+### 1. Prepare Data
 
-本项目目前支持 [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/) 数据集。请确保您的数据集目录结构如下：
+This project currently supports the [VOC2012](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/) dataset. Ensure your dataset directory structure is as follows:
 
 ```
 VOC2012/
@@ -94,15 +100,15 @@ VOC2012/
             └── val.txt
 ```
 
-更多详情请参阅 [数据集文档](docs/dataset.md)。
+For more details, refer to the [Dataset Documentation](docs/dataset.md).
 
-## 📊 性能对比
-> 🚧 正在测试中
+## 📊 Performance Comparison
+> 🚧 Under testing
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Feel free to submit Issues and Pull Requests!
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

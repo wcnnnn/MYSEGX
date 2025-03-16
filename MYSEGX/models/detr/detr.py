@@ -16,7 +16,7 @@ from ...nn.modules.assigners.hungarian_assigner import HungarianAssigner
 class DETR(nn.Module):
     """DETR模型
     
-    将ResNet主干网络、Transformer编码器和解码器、掩aeda以及匈牙利匹配器组合成完整的分割模型。
+    将ResNet主干网络、Transformer编码器和解码器、掩码头以及匈牙利匹配器组合成完整的分割模型。
     
     参数:
         num_classes (int): 类别数量
@@ -27,11 +27,13 @@ class DETR(nn.Module):
         num_decoder_layers (int): 解码器层数
         dim_feedforward (int): 前馈网络维度
         dropout (float): dropout比率
-        activation (str): 激活函数类型
+        backbone_type (str): 主干网络类型
+        task_type (str): 任务类型
+        output_size (tuple): 输出尺寸，如果为None则保持输入尺寸
     """
-    def __init__(self, num_classes=20, num_queries=100, hidden_dim=256, nhead=8,
+    def __init__(self, num_classes=20, num_queries=20, hidden_dim=256, nhead=8,
                  num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048,
-                 dropout=0.1, activation="relu", backbone_type="resnet50", task_type="instance"):
+                 dropout=0.1, backbone_type="resnet50", task_type="instance", output_size=None):
         super().__init__()
         
         # 验证任务类型
@@ -68,7 +70,7 @@ class DETR(nn.Module):
         else:  # resnet18, resnet34
             backbone_out_channels = 512
         
-        # 投影层 - 使用动态获取的输出通道数
+        # 投影层
         self.conv = nn.Conv2d(backbone_out_channels, hidden_dim, 1)
         
         # 位置编码
@@ -100,13 +102,31 @@ class DETR(nn.Module):
             self.class_embed = None
             self.matcher = None
         
-        # 掩aeda - 根据任务类型使用不同的掩aeda
+        # 掩码头 - 根据任务类型使用不同的掩码头
         if task_type == "semantic":
-            self.mask_head = SemanticMaskHead(backbone_out_channels, hidden_dim, num_classes, backbone_type=self.backbone_type)
+            self.mask_head = SemanticMaskHead(
+                backbone_out_channels, 
+                hidden_dim, 
+                num_classes, 
+                backbone_type=self.backbone_type,
+                output_size=output_size
+            )
         elif task_type == "instance":
-            self.mask_head = MaskHead(backbone_out_channels, hidden_dim, num_classes, backbone_type=self.backbone_type)
+            self.mask_head = MaskHead(
+                backbone_out_channels, 
+                hidden_dim, 
+                num_classes, 
+                backbone_type=self.backbone_type,
+                output_size=output_size
+            )
         else:  # panoptic
-            self.mask_head = PanopticMaskHead(backbone_out_channels, hidden_dim, num_classes, backbone_type=self.backbone_type)
+            self.mask_head = PanopticMaskHead(
+                backbone_out_channels, 
+                hidden_dim, 
+                num_classes, 
+                backbone_type=self.backbone_type,
+                output_size=output_size
+            )
         
         # 匈牙利匹配器
         self.matcher = HungarianAssigner()
@@ -179,17 +199,8 @@ class DETR(nn.Module):
             print(f"\n[DEBUG] 类别预测输出: shape={outputs_class.shape}")
             
             # 预测掩码 - 确保掩码尺寸正确
-            outputs_mask = self.mask_head(features, hs.permute(1, 0, 2))  # (B, N, H/4, W/4)
+            outputs_mask = self.mask_head(features, hs.permute(1, 0, 2))  # 已经是 (B, N, 640, 640)
             print(f"[DEBUG] 掩码预测输出: shape={outputs_mask.shape}, range=[{outputs_mask.min():.3f}, {outputs_mask.max():.3f}]")
-            
-            # 确保掩码尺寸为输入的1/4
-            if outputs_mask.shape[-2:] != (images.shape[2]//4, images.shape[3]//4):
-                outputs_mask = F.interpolate(
-                    outputs_mask, 
-                    size=(images.shape[2]//4, images.shape[3]//4),
-                    mode='bilinear',
-                    align_corners=False
-                )
             
             return {
                 'pred_logits': outputs_class,

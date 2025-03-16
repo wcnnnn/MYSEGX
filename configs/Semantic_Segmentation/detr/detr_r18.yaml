@@ -37,25 +37,37 @@ optimizer:
 
 # 数据集配置
 dataset:
-  name: voc  # 数据集名称
-  root: datasets/VOC2012  # 数据集根目录
-  size: [512, 512]  # 增加图像尺寸以提升特征图分辨率
+  name: voc
+  root: datasets/VOC2012
+  size: [640, 640]  # 添加输入尺寸配置
   transform:
     train:
-      - name: RandomResize
-        min_size: 512
-        max_size: 512
-      - name: RandomHorizontalFlip
-        prob: 0.5
-      - name: ToTensor
-      - name: Normalize
+      random_resize:
+        min_size: 280
+        max_size: 400
+      random_rotation:
+        degrees: 10
+        expand: true
+      random_scale:
+        min_scale: 0.8
+        max_scale: 1.2
+      random_crop:
+        size: [640, 640]
+      horizontal_flip:
+        p: 0.5
+      color_jitter:
+        brightness: 0.2
+        contrast: 0.2
+        saturation: 0.2
+      resize:
+        size: [640, 640]
+      normalize:
         mean: [0.485, 0.456, 0.406]
         std: [0.229, 0.224, 0.225]
     val:
-      - name: Resize
-        size: 512
-      - name: ToTensor
-      - name: Normalize
+      resize:
+        size: [640, 640]
+      normalize:
         mean: [0.485, 0.456, 0.406]
         std: [0.229, 0.224, 0.225]
 
@@ -65,17 +77,9 @@ loss:
   dice: 1.0  # Dice损失权重
   ignore_index: 255  # 忽略的标签值
 
-# 评估指标
-metrics:
-  # 分割质量相关指标
-  - name: mIoU  # 平均交并比
-  - name: pixel_accuracy  # 像素准确率
-  - name: mean_accuracy  # 平均准确率
-  - name: frequency_weighted_iou  # 频率加权IoU
-
 # 保存设置
 save:
-  checkpoint_dir: checkpoints/semantic/detr  # 更新保存路径以反映任务类型
+  checkpoint_dir: checkpoints/semantic/detr  # 语义分割模型保存路径
   save_freq: 10  # 每隔多少轮保存一次
   save_best: true  # 是否保存最佳模型
-  metric: mIoU  # 用于选择最佳模型的指标
+  metric: mIoU  # 用于选择最佳模型的指标（语义分割使用mIoU）

@@ -169,7 +169,7 @@ class InstanceMaskHead(nn.Module):
             mask_embeddings (Tensor): 解码器输出的掩码嵌入
             
         返回:
-            masks (Tensor): 预测的实例分割掩码
+            masks (Tensor): 预测的实例分割掩码，上采样到640x640
         """
         print(f"\n[DEBUG] InstanceMaskHead.forward - 主干网络: {self.backbone_type}")
         print(f"[DEBUG] 特征列表长度: {len(features)}")
@@ -179,11 +179,11 @@ class InstanceMaskHead(nn.Module):
         B, N, C = mask_embeddings.shape
         print(f"[DEBUG] 掩码嵌入: shape={mask_embeddings.shape}")
         
-        # 使用最后一层特征的4倍大小作为目标尺寸
-        last_feat = features[-1]
-        target_size = (last_feat.shape[2]*4, last_feat.shape[3]*4)  # 25*4=100
+        # 使用第一层特征的尺寸作为中间目标尺寸
+        first_feat = features[0]  # 第一层特征
+        target_size = (first_feat.shape[2], first_feat.shape[3])  # 160x160
         H, W = target_size
-        print(f"[DEBUG] 目标尺寸: {target_size}, 基于最后一层特征 {last_feat.shape}")
+        print(f"[DEBUG] 中间目标尺寸: {target_size}, 基于第一层特征 {first_feat.shape}")
         
         # 生成边界框注意力掩码
         bbox_mask = torch.zeros((B * N, H, W), device=features[0].device)
@@ -192,11 +192,11 @@ class InstanceMaskHead(nn.Module):
         mask_embeddings = mask_embeddings.reshape(B * N, C)  # [B*N, C]
         mask_embeddings = mask_embeddings.unsqueeze(-1).unsqueeze(-1)  # [B*N, C, 1, 1]
         mask_embeddings = F.interpolate(mask_embeddings, size=(H, W), mode='bilinear', align_corners=False)
-        print(f"[DEBUG] 处理后的掩码嵌入: shape={mask_embeddings.shape}")
+        print(f"[DEBUG] 处理后的掩码嵌入: shape={mask_embeddings.shape}, 范围=[{mask_embeddings.min():.3f}, {mask_embeddings.max():.3f}]")
         
         # 拼接特征并释放不需要的内存
         x = torch.cat([mask_embeddings, bbox_mask.unsqueeze(1)], 1)  # [B*N, C+1, H, W]
-        print(f"[DEBUG] 拼接后的特征: shape={x.shape}")
+        print(f"[DEBUG] 拼接后的特征: shape={x.shape}, 范围=[{x.min():.3f}, {x.max():.3f}]")
         del mask_embeddings, bbox_mask  # 释放内存
         
         # 使用FPN特征进行掩码生成
@@ -253,13 +253,8 @@ class InstanceMaskHead(nn.Module):
         x = self.out_lay(x)
         x = x.view(B, N, H, W)
         
-        # 调整到原始大小
-        x = F.interpolate(x, size=(features[0].shape[2], features[0].shape[3]), 
-                         mode='bilinear', align_corners=False)
-        
-        # 使用tanh激活函数限制输出范围在[-1,1]之间
-        x = torch.tanh(x)
-        
-        print(f"[DEBUG] 掩码预测输出: shape={x.shape}, range=[{x.min():.3f}, {x.max():.3f}]")
+        # 上采样到固定大小 (640x640)，与语义分割头保持一致
+        x = F.interpolate(x, size=(512, 512), mode='bilinear', align_corners=False)
+        print(f"[DEBUG] 最终掩码: shape={x.shape}, range=[{x.min():.3f}, {x.max():.3f}]")
         
         return x
